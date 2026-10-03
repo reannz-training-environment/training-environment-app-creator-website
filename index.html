@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Training Environment App Creator</title>
+  <meta name="description" content="Describe a workshop environment and open the pull request that creates its REANNZ training environment apps.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2313b9e6'/%3E%3Ccircle cx='11' cy='11' r='4' fill='%2386d4f0'/%3E%3Ccircle cx='21' cy='19' r='3.5' fill='%23fff'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="assets/app.css">
+  <script src="assets/vendor/js-yaml.min.js" defer></script>
+  <script src="assets/app.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="wrap header-inner">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <div>
+          <p class="brand-kicker">REANNZ training environment</p>
+          <h1>App creator</h1>
+        </div>
+      </div>
+      <nav class="header-links" aria-label="Related">
+        <a href="https://github.com/reannz-training-environment/training-environment-app-creator">How it works</a>
+        <a href="https://github.com/nesi/training-environment">Training environment</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap layout">
+    <form id="app-form" class="form" novalidate autocomplete="off">
+      <div class="intro">
+        <p>Describe the environment a workshop needs. The pull request adds it to the app creator, and merging it builds one app per interface, each in its own repository, ready to add to the training environment.</p>
+        <div class="intro-actions">
+          <button type="button" class="button ghost" id="import-open">Import YAML</button>
+          <button type="button" class="button ghost" id="load-open">Edit an existing app</button>
+          <button type="button" class="button ghost" id="reset">Start over</button>
+        </div>
+        <p class="loaded-note" id="loaded-note" hidden></p>
+      </div>
+
+      <section class="card" aria-labelledby="h-app">
+        <h2 id="h-app"><span class="step">1</span>App</h2>
+        <div class="grid">
+          <div class="field">
+            <label for="name">Name</label>
+            <input id="name" spellcheck="false" placeholder="intro-python" maxlength="40" aria-describedby="name-hint name-error">
+            <p class="hint" id="name-hint">Lower case letters, digits and hyphens. It names the repositories and images, and cannot change later.</p>
+            <p class="field-error" id="name-error"></p>
+          </div>
+          <div class="field">
+            <label for="title">Title</label>
+            <input id="title" maxlength="60" placeholder="Introduction to Python" aria-describedby="title-hint">
+            <p class="hint" id="title-hint">Shown on the dashboard, with the interface in brackets.</p>
+          </div>
+          <div class="field span-2">
+            <label for="description">Description</label>
+            <textarea id="description" rows="2" maxlength="1000" placeholder="What the workshop teaches, and who it is for."></textarea>
+          </div>
+          <div class="field">
+            <label for="workshop-url">Workshop material <span class="optional">optional</span></label>
+            <input id="workshop-url" type="url" spellcheck="false" placeholder="https://...">
+          </div>
+          <div class="field">
+            <label for="maintainers">Maintainers <span class="optional">optional</span></label>
+            <input id="maintainers" spellcheck="false" placeholder="GitHub usernames, comma separated">
+          </div>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="h-interfaces">
+        <h2 id="h-interfaces"><span class="step">2</span>Interfaces</h2>
+        <p class="section-hint">Each interface becomes its own app and repository, sharing the name, features, data and software.</p>
+        <div class="choice-grid" role="group" aria-labelledby="h-interfaces">
+          <label class="choice">
+            <input type="checkbox" name="interface" value="jupyter" checked>
+            <span class="choice-body">
+              <svg class="choice-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4"/><path d="M10 12h5M10 15h5M10 18h3"/></svg>
+              <span class="choice-title">JupyterLab</span>
+              <span class="choice-text">Notebooks, terminals and a file browser</span>
+              <code class="choice-repo" data-repo-for="jupyter"></code>
+            </span>
+          </label>
+          <label class="choice">
+            <input type="checkbox" name="interface" value="rstudio">
+            <span class="choice-body">
+              <svg class="choice-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 16.5v-9h3.5a2.5 2.5 0 0 1 0 5H9.5M12.5 12.5l3 4"/></svg>
+              <span class="choice-title">RStudio</span>
+              <span class="choice-text">RStudio Server on a rocker image</span>
+              <code class="choice-repo" data-repo-for="rstudio"></code>
+            </span>
+          </label>
+          <label class="choice">
+            <input type="checkbox" name="interface" value="codeserver">
+            <span class="choice-body">
+              <svg class="choice-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 7 3.5 12l5 5M15.5 7l5 5-5 5M13.5 5l-3 14"/></svg>
+              <span class="choice-title">VS Code</span>
+              <span class="choice-text">code-server: VS Code in the browser</span>
+              <code class="choice-repo" data-repo-for="codeserver"></code>
+            </span>
+          </label>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="h-hpc">
+        <h2 id="h-hpc"><span class="step">3</span>HPC features</h2>
+        <p class="section-hint">Emulated inside each session, so learners can practise cluster workflows on the training environment.</p>
+
+        <div class="feature">
+          <label class="switch">
+            <input type="checkbox" id="gpu-enabled" role="switch">
+            <span class="switch-track" aria-hidden="true"></span>
+            <span class="feature-title">Emulated GPUs</span>
+          </label>
+          <p class="feature-text">NVIDIA cards that <code>nvidia-smi</code>, <code>nvtop</code>, Slurm and PyTorch all see, with real memory limits. There is no physical GPU: everything runs on the CPU, so timings say nothing about GPU performance.</p>
+          <div class="feature-options" id="gpu-options" hidden>
+            <fieldset class="chip-set">
+              <legend>Cards on each session's node</legend>
+              <div id="gpu-cards" class="chips"></div>
+            </fieldset>
+            <div class="grid">
+              <div class="field">
+                <label for="gpu-vram">Memory per card</label>
+                <select id="gpu-vram"></select>
+                <p class="hint">A small card makes out-of-memory errors cheap to teach.</p>
+              </div>
+            </div>
+            <label class="check"><input type="checkbox" id="gpu-pytorch" checked> PyTorch (CPU build), with <code>torch.cuda</code> using the emulated cards</label>
+            <label class="check"><input type="checkbox" id="gpu-numba" checked> Numba's CUDA simulator, for writing GPU kernels</label>
+            <label class="check"><input type="checkbox" id="gpu-form" checked> Learners can change each card's memory on the launch form</label>
+          </div>
+        </div>
+
+        <div class="feature">
+          <label class="switch">
+            <input type="checkbox" id="slurm-enabled" role="switch">
+            <span class="switch-track" aria-hidden="true"></span>
+            <span class="feature-title">Slurm</span>
+          </label>
+          <p class="feature-text">A single-node scheduler in the session: <code>sbatch</code>, <code>squeue</code>, <code>scancel</code>, <code>sinfo</code>, <code>sacct</code>, <code>seff</code>, with Slurm's options and output.</p>
+          <p class="feature-note" id="slurm-locked" hidden>Always on with emulated GPUs, which are requested through Slurm. Their node is <code>gpunode001</code> in partition <code>gpu</code>.</p>
+          <div class="feature-options" id="slurm-options" hidden>
+            <div class="grid">
+              <div class="field">
+                <label for="slurm-partition">Partition</label>
+                <input id="slurm-partition" spellcheck="false" value="compute">
+              </div>
+              <div class="field">
+                <label for="slurm-node">Node name</label>
+                <input id="slurm-node" spellcheck="false" value="node001">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="feature">
+          <label class="switch">
+            <input type="checkbox" id="lmod-enabled" role="switch">
+            <span class="switch-track" aria-hidden="true"></span>
+            <span class="feature-title">Environment modules (Lmod)</span>
+          </label>
+          <p class="feature-text"><code>module avail</code> and <code>module load</code>, in terminals and batch jobs. Each conda package becomes a module rather than being on <code>PATH</code>.</p>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="h-data">
+        <h2 id="h-data"><span class="step">4</span>Data</h2>
+        <p class="section-hint">Baked into the image, and copied into each learner's home directory when a session starts. Files that already exist are never overwritten, so work survives a restart.</p>
+        <div id="data-rows" class="data-rows"></div>
+        <p class="empty" id="data-empty">No data yet.</p>
+        <div class="row-actions">
+          <button type="button" class="button secondary" id="add-github">Add a GitHub repository</button>
+          <button type="button" class="button secondary" id="add-url">Add a download</button>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="h-software">
+        <h2 id="h-software"><span class="step">5</span>Software</h2>
+        <p class="section-hint">One package per line. JupyterLab, VS Code and the basics (git, Python, curl, vim, nano, rsync, ...) are already there.</p>
+        <details class="presets">
+          <summary>Common packages</summary>
+          <div id="presets"></div>
+        </details>
+        <div class="grid">
+          <div class="field">
+            <label for="sw-conda">Conda packages</label>
+            <textarea id="sw-conda" rows="4" spellcheck="false" placeholder="samtools&#10;fastqc=0.12.1"></textarea>
+            <p class="hint">Versions as <code>name=1.2</code>. Each command is on <code>PATH</code>, or a module with Lmod.</p>
+          </div>
+          <div class="field">
+            <label for="sw-pip">Python packages (pip)</label>
+            <textarea id="sw-pip" rows="4" spellcheck="false" placeholder="pandas&#10;matplotlib>=3.7"></textarea>
+            <p class="hint">Lines of a requirements file.</p>
+          </div>
+          <div class="field">
+            <label for="sw-channels">Conda channels</label>
+            <input id="sw-channels" spellcheck="false" value="conda-forge, bioconda">
+          </div>
+          <div class="field">
+            <label for="sw-apt">System packages (apt)</label>
+            <textarea id="sw-apt" rows="2" spellcheck="false" placeholder="parallel"></textarea>
+          </div>
+          <div class="field" data-needs="rstudio">
+            <label for="sw-cran">R packages: CRAN</label>
+            <textarea id="sw-cran" rows="3" spellcheck="false" placeholder="tidyverse"></textarea>
+            <p class="hint needs-note">RStudio app only.</p>
+          </div>
+          <div class="field" data-needs="rstudio">
+            <label for="sw-bioc">R packages: Bioconductor</label>
+            <textarea id="sw-bioc" rows="3" spellcheck="false" placeholder="DESeq2"></textarea>
+            <p class="hint needs-note">RStudio app only.</p>
+          </div>
+          <div class="field" data-needs="rstudio">
+            <label for="sw-rgithub">R packages: GitHub</label>
+            <textarea id="sw-rgithub" rows="2" spellcheck="false" placeholder="owner/repo"></textarea>
+            <p class="hint needs-note">RStudio app only.</p>
+          </div>
+          <div class="field" data-needs="codeserver">
+            <label for="sw-vscode">VS Code extensions</label>
+            <textarea id="sw-vscode" rows="2" spellcheck="false" placeholder="ms-python.python"></textarea>
+            <p class="hint needs-note">VS Code app only, from Open VSX.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="h-session">
+        <h2 id="h-session"><span class="step">6</span>Session</h2>
+        <div class="grid grid-5">
+          <div class="field">
+            <label for="cpu">CPUs</label>
+            <input id="cpu" type="number" min="1" max="32" value="2">
+          </div>
+          <div class="field">
+            <label for="memory">Memory (GB)</label>
+            <input id="memory" type="number" min="1" max="256" value="4">
+          </div>
+          <div class="field">
+            <label for="wall-default">Hours</label>
+            <input id="wall-default" type="number" min="1" max="168" value="8">
+          </div>
+          <div class="field">
+            <label for="wall-min">Shortest</label>
+            <input id="wall-min" type="number" min="1" max="168" value="4">
+          </div>
+          <div class="field">
+            <label for="wall-max">Longest</label>
+            <input id="wall-max" type="number" min="1" max="168" value="12">
+          </div>
+        </div>
+        <p class="hint">A training environment node fits about fifteen 2 CPU, 4 GB sessions.</p>
+      </section>
+
+      <details class="card advanced" id="advanced">
+        <summary><h2><span class="step">7</span>Advanced</h2></summary>
+        <div class="grid">
+          <div class="field">
+            <label for="version">Version</label>
+            <input id="version" spellcheck="false" value="0.1.0">
+            <p class="hint">Bump it to release a change to an existing app.</p>
+          </div>
+          <div class="field">
+            <label for="visibility">Repositories</label>
+            <select id="visibility">
+              <option value="public">Public</option>
+              <option value="private">Private</option>
+            </select>
+            <p class="hint">The cluster can only pull public images.</p>
+          </div>
+          <div class="field" data-needs="rstudio">
+            <label for="rstudio-image">RStudio image</label>
+            <select id="rstudio-image">
+              <option value="rocker/rstudio">rocker/rstudio</option>
+              <option value="rocker/tidyverse">rocker/tidyverse (+ tidyverse, devtools)</option>
+              <option value="rocker/verse">rocker/verse (+ LaTeX, publishing)</option>
+              <option value="rocker/geospatial">rocker/geospatial (+ GDAL, sf, terra)</option>
+            </select>
+          </div>
+          <div class="field" data-needs="rstudio">
+            <label for="r-version">R version</label>
+            <input id="r-version" spellcheck="false" value="4.5.3" list="r-versions">
+            <datalist id="r-versions">
+              <option value="4.6.1"><option value="4.5.3"><option value="4.4.3">
+            </datalist>
+          </div>
+          <div class="field" data-needs="codeserver">
+            <label for="start-dir">Folder VS Code opens</label>
+            <input id="start-dir" spellcheck="false" placeholder="home directory" list="start-dirs">
+            <datalist id="start-dirs"></datalist>
+          </div>
+          <div class="field span-2">
+            <label for="dockerfile">Extra Dockerfile instructions</label>
+            <textarea id="dockerfile" rows="3" spellcheck="false" class="mono" placeholder="RUN ..."></textarea>
+            <p class="hint">Added to every image after the software. Reviewers will read these.</p>
+          </div>
+          <div class="field span-2">
+            <label for="startup">Commands at session start</label>
+            <textarea id="startup" rows="3" spellcheck="false" class="mono" placeholder="echo 'Welcome!'"></textarea>
+            <p class="hint">Run with bash in the home directory, just before the interface starts.</p>
+          </div>
+        </div>
+      </details>
+    </form>
+
+    <aside class="panel" aria-labelledby="h-panel">
+      <div class="panel-inner">
+        <h2 id="h-panel">Pull request</h2>
+        <p class="panel-file">Adds <code id="spec-path">apps/&lt;name&gt;.yml</code> to <a href="https://github.com/reannz-training-environment/training-environment-app-creator">training-environment-app-creator</a>. Merging creates:</p>
+        <ul class="repo-list" id="repo-list"></ul>
+        <div id="messages" class="messages" aria-live="polite"></div>
+        <button type="button" class="button primary wide" id="create-pr">Create pull request</button>
+        <p class="hint" id="pr-mode"></p>
+        <div id="result" class="result" aria-live="polite" hidden></div>
+
+        <details class="token-panel" id="token-panel">
+          <summary>One-click pull requests with a token</summary>
+          <p>With a token, this page opens the pull request itself, and can load existing apps to edit. The token stays in this browser and is only sent to GitHub.</p>
+          <ol class="steps">
+            <li><a id="token-link" href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">Create a fine-grained token</a>: resource owner <code>reannz-training-environment</code>, only the <code>training-environment-app-creator</code> repository, with <em>Contents</em> and <em>Pull requests</em> set to read and write.</li>
+            <li>Paste it here.</li>
+          </ol>
+          <div class="field">
+            <label for="token">Token</label>
+            <input id="token" type="password" spellcheck="false" placeholder="github_pat_...">
+          </div>
+          <label class="check"><input type="checkbox" id="token-remember"> Remember on this device</label>
+          <div class="token-actions">
+            <button type="button" class="button secondary" id="token-save">Use token</button>
+            <button type="button" class="button ghost" id="token-forget">Forget</button>
+          </div>
+          <p class="hint" id="token-status"></p>
+        </details>
+
+        <div class="yaml-head">
+          <h3>The app spec</h3>
+          <div class="yaml-actions">
+            <button type="button" class="button ghost small" id="copy-yaml">Copy</button>
+            <button type="button" class="button ghost small" id="download-yaml">Download</button>
+          </div>
+        </div>
+        <pre class="code" id="yaml-preview" tabindex="0" aria-label="The app spec, as YAML"></pre>
+      </div>
+    </aside>
+  </main>
+
+  <dialog id="import-dialog" class="dialog" aria-labelledby="import-title">
+    <form method="dialog" class="dialog-body">
+      <h2 id="import-title">Import YAML</h2>
+      <p>Paste an app spec, or choose a file. This replaces what is in the form.</p>
+      <textarea id="import-text" rows="12" class="mono" spellcheck="false" aria-label="App spec YAML"></textarea>
+      <input type="file" id="import-file" accept=".yml,.yaml,text/yaml">
+      <p class="field-error" id="import-error"></p>
+      <div class="dialog-actions">
+        <button value="cancel" class="button ghost">Cancel</button>
+        <button type="button" id="import-apply" class="button primary">Import</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="load-dialog" class="dialog" aria-labelledby="load-title">
+    <form method="dialog" class="dialog-body">
+      <h2 id="load-title">Edit an existing app</h2>
+      <p id="load-intro">Choose an app from <code>apps/</code>. The pull request will change it.</p>
+      <select id="load-select" size="8" aria-label="Apps"></select>
+      <p class="field-error" id="load-error"></p>
+      <div class="dialog-actions">
+        <button value="cancel" class="button ghost">Cancel</button>
+        <button type="button" id="load-apply" class="button primary">Edit this app</button>
+      </div>
+    </form>
+  </dialog>
+
+  <footer class="site-footer wrap">
+    <p>Specs are checked again, and every image is test-built, before a pull request can be merged. Generated apps follow the NeSI <a href="https://github.com/nesi/training-environment">training environment</a> apps; the GPU and Slurm emulators come from the <a href="https://github.com/nesi/training-environment-jupyter-gpu-app">GPU workshop app</a>.</p>
+  </footer>
+</body>
+</html>
