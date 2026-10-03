@@ -23,6 +23,20 @@ The page is static, with no server of its own:
   pull request itself through the GitHub API, and can load an existing app to
   edit. The token stays in the browser, and is sent only to `api.github.com`.
 
+## Space needed
+
+The panel estimates the space the app needs: the data each learner gets in
+their home directory (and so the home directories' total, for a number of
+learners), and the image each worker node stores. Data from a GitHub
+repository is sized exactly, from the sizes of the repository's files at the
+chosen ref; a download from a GitHub release from the release; other downloads
+only if their server answers the page. Software is estimated from `TYPICAL` in
+`assets/app.js`, sizes measured on images the app creator built; update them
+from the Validate workflow's measurements when the templates change. The pull
+request's checks measure every image exactly.
+
+## Checking
+
 The page checks the spec with the same rules as the app creator's
 [schema](https://github.com/reannz-training-environment/training-environment-app-creator/blob/main/schema/app.schema.json),
 so most mistakes are caught while typing. The app creator checks again before a

@@ -477,6 +477,41 @@ input[type="radio"] { width: auto; accent-color: var(--accent); }
 .repo-list .repo-state { color: var(--muted); font-size: 12.5px; }
 .repo-list .repo-state.exists { color: var(--warn); }
 
+.estimate {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-small);
+  padding: 10px 12px;
+  display: grid;
+  gap: 6px;
+  font-size: 13.5px;
+}
+
+.estimate-head { display: flex; align-items: center; justify-content: space-between; }
+.estimate-head h3 { margin: 0; font-size: 14px; }
+
+.badge {
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--muted);
+}
+
+.estimate-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.estimate-row strong { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.estimate-row label { font-weight: 400; }
+.estimate-row input { width: 4.5em; padding: 2px 6px; margin: 0 2px; font-size: 13.5px; }
+.estimate .hint { font-size: 12.5px; }
+.estimate-details summary { cursor: pointer; color: var(--accent); font-weight: 600; }
+.estimate-details ul { margin: 6px 0 0; padding-left: 0; list-style: none; display: grid; gap: 3px; }
+.estimate-details li { display: flex; justify-content: space-between; gap: 10px; color: var(--muted); }
+.estimate-details li.group { color: var(--text); font-weight: 600; margin-top: 4px; }
+.estimate-details li span:last-child { white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+.size-note { color: var(--muted); }
+.size-note.warn { color: var(--warn); }
+
 .messages { display: grid; gap: 6px; }
 .messages:empty { display: none; }
 
