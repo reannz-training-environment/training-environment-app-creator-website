@@ -2,8 +2,10 @@
  * Training environment app creator website.
  *
  * Builds an app spec (apps/<name>.yml) from the form, checks it with the same
- * rules as the app creator's schema, and opens the pull request that adds it:
- * through GitHub's editor, or with a token, through the GitHub API.
+ * rules as the app creator's schema, and files it as an app request: an issue
+ * made with the app creator's "Request an app" form. GitHub opens with the
+ * form filled in, or, with a token, the request is filed through the API. The
+ * app creator turns the request into the pull request.
  */
 (() => {
   "use strict";
@@ -174,13 +176,6 @@
     } catch {
       return null;
     }
-  }
-
-  function utf8ToBase64(text) {
-    const bytes = new TextEncoder().encode(text);
-    let binary = "";
-    for (const b of bytes) binary += String.fromCharCode(b);
-    return btoa(binary);
   }
 
   function base64ToUtf8(b64) {
@@ -443,7 +438,7 @@
     if (adv.startup) warnings.push("Reviewers will read the session start commands before merging.");
 
     if (spec.name && RE.name.test(spec.name) && specState.get(spec.name) === "exists" && !(loaded && loaded.name === spec.name)) {
-      warnings.push(`apps/${spec.name}.yml already exists. To change that app, use "Edit an existing app"; this pull request would replace it.`);
+      warnings.push(`An app called ${spec.name} already exists. To change it, use "Edit an existing app"; this request would replace it.`);
     }
     return { errors, warnings };
   }
@@ -956,7 +951,7 @@
           const label = INTERFACES.find((i) => i.id === id).label;
           const text =
             state === "exists"
-              ? "exists: merging opens a pull request to update it"
+              ? "exists: approving updates it"
               : state === "new"
                 ? "new repository"
                 : state === "checking"
@@ -984,10 +979,8 @@
         ? "Fix the problems above first."
         : `Give the app ${missing.join(" and ")} to start.`
       : token
-        ? "Opens the pull request with your token."
-        : editing
-          ? "Copies the spec and opens GitHub's editor on the existing file."
-          : "Opens GitHub's editor with the file filled in, in a new tab.";
+        ? "Sends the request with your token. The app creator does the rest."
+        : "Opens GitHub with the request filled in: press Create there, and the app creator does the rest.";
 
     $("yaml-preview").textContent = toYaml(spec);
     updatePresets();
@@ -1025,7 +1018,7 @@
         }
         changed = true;
       }
-      if (getToken() && !specState.has(name)) {
+      if (!specState.has(name)) {
         try {
           const found = await gh(`/repos/${OWNER}/${REPO}/contents/apps/${name}.yml?ref=${BRANCH}`, { allow: [404] });
           specState.set(name, found ? "exists" : "new");
@@ -1142,36 +1135,31 @@
   function showLoaded() {
     const note = $("loaded-note");
     if (loaded) {
-      note.innerHTML = `Editing <code>apps/${esc(loaded.name)}.yml</code>. The pull request will change that app; keep its name.`;
+      note.innerHTML = `Editing <code>apps/${esc(loaded.name)}.yml</code>. The request will change that app; keep its name.`;
       note.hidden = false;
     } else {
       note.hidden = true;
     }
   }
 
-  // ---------------------------------------------------------- pull request
+  // --------------------------------------------------------------- request
+  //
+  // A request is an issue made with the app creator's "Request an app" form,
+  // whose one field (id "spec") is the YAML. The app creator's Request
+  // workflow reads it back from the issue body, which GitHub writes as below.
 
-  function prBody(spec, verb) {
-    const repos = spec.interfaces.map((i) => `* \`${repoName(i, spec.name)}\``).join("\n");
-    return [
-      `${verb}s \`apps/${spec.name}.yml\`, from the app creator website.`,
-      "",
-      verb === "Add" ? "Merging creates these repositories:" : "Merging opens update pull requests in, or creates, these repositories:",
-      "",
-      repos,
-      "",
-      "The Validate workflow checks the spec, test-builds every image, and comments with the details.",
-      "",
-      "## Before merging",
-      "",
-      "- [ ] The Validate checks pass: the spec is valid and every image builds",
-      "- [ ] The app name is right: it becomes the repository and image names, which cannot be changed later",
-      "- [ ] Any `advanced.dockerfile` or `advanced.startup` commands have been read and are safe",
-      "- [ ] Data sources are public, and pinned to a commit or tag where possible",
-      "- [ ] For a change to an existing app, `version` has been bumped if the change should be released",
-      "",
-    ].join("\n");
+  const REQUEST_FORM = "app-request.yml";
+  const MAX_URL = 7000;
+
+  function requestTitle(spec) {
+    return `App request: ${spec.title} (${spec.name})`;
   }
+
+  function requestBody(yaml) {
+    return `### App spec\n\n\`\`\`yaml\n${yaml.replace(/\n+$/, "")}\n\`\`\`\n`;
+  }
+
+  const NEXT = `The app creator then opens the pull request and test-builds every image (10 to 30 minutes), and a maintainer approves it. Once it is approved, the app's repositories are made and their images built. GitHub notifies you as it goes, and when the app is ready.`;
 
   function showResult(html, isError = false) {
     const box = $("result");
@@ -1188,73 +1176,51 @@
     return win;
   }
 
-  function openEditor(spec, yaml) {
-    const path = `apps/${spec.name}.yml`;
-    if (loaded && loaded.name === spec.name) {
-      // start copying while this page still has focus; the new tab takes it
-      const copying = copyText(yaml);
-      const win = openTab(`${CREATOR}/edit/${BRANCH}/${path}`);
-      copying.then((copied) => {
-        showResult(`
-          <p><strong>${copied ? "The spec is on your clipboard." : "Copy the spec below first."}</strong> GitHub's editor ${win ? "opened in a new tab" : `is at <a href="${CREATOR}/edit/${BRANCH}/${esc(path)}" target="_blank" rel="noopener">${esc(path)}</a>`}:</p>
-          <ol><li>Select everything in the file and paste over it.</li>
-          <li><em>Commit changes...</em>, then <em>Create a new branch for this commit and start a pull request</em>, then <em>Propose changes</em>.</li>
-          <li><em>Create pull request</em>.</li></ol>`);
-      });
-      return;
-    }
-    let url = `${CREATOR}/new/${BRANCH}?filename=${encodeURIComponent(path)}&value=${encodeURIComponent(yaml)}`;
-    const tooLong = url.length > 7000;
-    if (tooLong) url = `${CREATOR}/new/${BRANCH}?filename=${encodeURIComponent(path)}`;
+  // GitHub's request form, filled in; the requester only presses Create
+  function openRequestForm(spec, yaml) {
+    const form = `${CREATOR}/issues/new?${new URLSearchParams({ template: REQUEST_FORM, title: requestTitle(spec) })}`;
+    let url = `${form}&${new URLSearchParams({ spec: yaml })}`;
+    const tooLong = url.length > MAX_URL;
+    if (tooLong) url = form;
+    // start copying while this page still has focus; the new tab takes it
     const copying = tooLong ? copyText(yaml) : Promise.resolve(false);
     const win = openTab(url);
-    const steps = `
-      <ol>
-        <li>Check the file name reads <code>${esc(path)}</code>.</li>
-        <li><em>Commit changes...</em>, then <em>Create a new branch for this commit and start a pull request</em>, then <em>Propose changes</em>.</li>
-        <li><em>Create pull request</em>. The checks then test-build every image.</li>
-      </ol>`;
-    const where = win ? "GitHub's editor opened in a new tab" : `Open <a href="${esc(url)}" target="_blank" rel="noopener">GitHub's editor</a>`;
+    const link = `<a href="${esc(url)}" target="_blank" rel="noopener">the request form</a>`;
     if (tooLong) {
       copying.then((copied) =>
-        showResult(`<p><strong>The spec is too long to pass in a link${copied ? ", so it is on your clipboard" : "; copy it from below"}.</strong> ${where}: paste it in, then:</p>${steps}`),
+        showResult(`
+          <p><strong>The request is too long to put in a link${copied ? ", so it is on your clipboard" : "; copy the spec from below"}.</strong>
+          ${win ? "GitHub opened in a new tab" : `Open ${link}`}: paste it into the <em>App spec</em> box, then press <strong>Create</strong>.</p>
+          <p>${NEXT}</p>`),
       );
-    } else {
-      showResult(`<p><strong>${where}</strong> with the spec filled in. There:</p>${steps}<p class="hint">GitHub may ask you to sign in; you need write access to the app creator repository.</p>`);
+      return;
     }
+    showResult(`
+      <p><strong>${win ? "GitHub opened in a new tab" : `Open ${link}`}, with your request filled in: press <em>Create</em> there.</strong> That is all.</p>
+      <p>${NEXT}</p>
+      <p class="hint">GitHub may ask you to sign in first.</p>`);
   }
 
-  async function openWithApi(spec, yaml) {
+  // with a token, the request is filed straight away
+  async function fileWithApi(spec, yaml) {
     busy = true;
     render();
     try {
-      const repo = await gh(`/repos/${OWNER}/${REPO}`);
-      const base = repo.default_branch;
-      const head = await gh(`/repos/${OWNER}/${REPO}/git/ref/heads/${encodeURIComponent(base)}`);
-      const path = `apps/${spec.name}.yml`;
-      const existing = await gh(`/repos/${OWNER}/${REPO}/contents/${path}?ref=${encodeURIComponent(base)}`, { allow: [404] });
-      const verb = existing ? "Update" : "Add";
-      const branch = `app/${spec.name}-${Date.now().toString(36)}`;
-      await gh(`/repos/${OWNER}/${REPO}/git/refs`, { method: "POST", body: { ref: `refs/heads/${branch}`, sha: head.object.sha } });
-      const content = { message: `${verb} the ${spec.title} app`, content: utf8ToBase64(yaml), branch };
-      if (existing) content.sha = existing.sha;
-      await gh(`/repos/${OWNER}/${REPO}/contents/${path}`, { method: "PUT", body: content });
-      const pr = await gh(`/repos/${OWNER}/${REPO}/pulls`, {
+      const issue = await gh(`/repos/${OWNER}/${REPO}/issues`, {
         method: "POST",
-        body: { title: `${verb} app: ${spec.title} (${spec.name})`, head: branch, base, body: prBody(spec, verb) },
+        body: { title: requestTitle(spec), body: requestBody(yaml), labels: ["app request"] },
       });
-      specState.set(spec.name, "exists");
       showResult(`
-        <p><strong>Pull request #${pr.number} is open:</strong> <a href="${esc(pr.html_url)}" target="_blank" rel="noopener">${esc(pr.title)}</a></p>
-        <p>Its checks validate the spec and test-build every image, then comment with what merging will do.</p>`);
+        <p><strong>Request #${issue.number} is in:</strong> <a href="${esc(issue.html_url)}" target="_blank" rel="noopener">${esc(issue.title)}</a>. Nothing else is needed.</p>
+        <p>${NEXT}</p>`);
     } catch (e) {
       const hint =
         e.status === 401
           ? "The token is not valid any more."
-          : e.status === 403 || e.status === 404
-            ? "The token needs Contents and Pull requests (read and write) on training-environment-app-creator."
+          : e.status === 403 || e.status === 404 || e.status === 410
+            ? "The token needs Issues (read and write) on training-environment-app-creator."
             : "";
-      showResult(`<p><strong>The pull request was not created.</strong> ${esc(e.message)}</p>${hint ? `<p>${esc(hint)}</p>` : ""}`, true);
+      showResult(`<p><strong>The request was not sent.</strong> ${esc(e.message)}</p>${hint ? `<p>${esc(hint)}</p>` : ""}`, true);
     } finally {
       busy = false;
       render();
@@ -1269,8 +1235,8 @@
       return;
     }
     const yaml = toYaml(spec);
-    if (getToken()) openWithApi(spec, yaml);
-    else openEditor(spec, yaml);
+    if (getToken()) fileWithApi(spec, yaml);
+    else openRequestForm(spec, yaml);
   }
 
   // ---------------------------------------------------------------- dialogs
@@ -1289,12 +1255,6 @@
     const error = $("load-error");
     error.textContent = "";
     select.innerHTML = "";
-    if (!getToken()) {
-      $("token-panel").open = true;
-      $("token").focus();
-      $("token-status").textContent = "Editing an existing app needs a token, to read the app creator repository.";
-      return;
-    }
     $("load-intro").textContent = "Loading the apps...";
     dialog.showModal();
     try {
@@ -1304,7 +1264,7 @@
         $("load-intro").textContent = "There are no apps yet.";
         return;
       }
-      $("load-intro").innerHTML = "Choose an app from <code>apps/</code>. The pull request will change it.";
+      $("load-intro").innerHTML = "Choose an app from <code>apps/</code>. Your request will change it.";
       select.innerHTML = apps.map((f) => `<option value="${esc(f.path)}">${esc(f.name.replace(/\.yml$/, ""))}</option>`).join("");
       select.selectedIndex = 0;
     } catch (e) {
@@ -1465,11 +1425,10 @@
       "https://github.com/settings/personal-access-tokens/new?" +
       new URLSearchParams({
         name: "Training environment app creator",
-        description: "Opens pull requests from the app creator website",
+        description: "Files app requests from the app creator website",
         target_name: OWNER,
         expires_in: "90",
-        contents: "write",
-        pull_requests: "write",
+        issues: "write",
       }).toString();
     $("token-save").addEventListener("click", async () => {
       const token = $("token").value.trim();

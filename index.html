@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Training Environment App Creator</title>
-  <meta name="description" content="Describe a workshop environment and open the pull request that creates its REANNZ training environment apps.">
+  <meta name="description" content="Describe a workshop environment and request the REANNZ training environment apps for it.">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2313b9e6'/%3E%3Ccircle cx='11' cy='11' r='4' fill='%2386d4f0'/%3E%3Ccircle cx='21' cy='19' r='3.5' fill='%23fff'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="assets/app.css">
   <script src="assets/vendor/js-yaml.min.js" defer></script>
@@ -30,7 +30,7 @@
   <main class="wrap layout">
     <form id="app-form" class="form" novalidate autocomplete="off">
       <div class="intro">
-        <p>Describe the environment a workshop needs. The pull request adds it to the app creator, and merging it builds one app per interface, each in its own repository, ready to add to the training environment.</p>
+        <p>Describe the environment a workshop needs, and press the button. The app creator turns it into a pull request and test-builds it; once a maintainer approves it, each interface becomes its own repository with its image built, ready to add to the training environment.</p>
         <div class="intro-actions">
           <button type="button" class="button ghost" id="import-open">Import YAML</button>
           <button type="button" class="button ghost" id="load-open">Edit an existing app</button>
@@ -310,8 +310,8 @@
 
     <aside class="panel" aria-labelledby="h-panel">
       <div class="panel-inner">
-        <h2 id="h-panel">Pull request</h2>
-        <p class="panel-file">Adds <code id="spec-path">apps/&lt;name&gt;.yml</code> to <a href="https://github.com/reannz-training-environment/training-environment-app-creator">training-environment-app-creator</a>. Merging creates:</p>
+        <h2 id="h-panel">Request</h2>
+        <p class="panel-file">Becomes <code id="spec-path">apps/&lt;name&gt;.yml</code> in <a href="https://github.com/reannz-training-environment/training-environment-app-creator">training-environment-app-creator</a>. Once approved, it makes:</p>
         <ul class="repo-list" id="repo-list"></ul>
 
         <section class="estimate" aria-labelledby="h-estimate">
@@ -341,10 +341,10 @@
         <div id="result" class="result" aria-live="polite" hidden></div>
 
         <details class="token-panel" id="token-panel">
-          <summary>One-click pull requests with a token</summary>
-          <p>With a token, this page opens the pull request itself, and can load existing apps to edit. The token stays in this browser and is only sent to GitHub.</p>
+          <summary>Skip GitHub's Create button with a token</summary>
+          <p>Without a token, the button opens GitHub with the request filled in, for you to press <em>Create</em>: this page has no server of its own to send it. With a token, it sends the request itself. The token stays in this browser and is only sent to GitHub.</p>
           <ol class="steps">
-            <li><a id="token-link" href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">Create a fine-grained token</a>: resource owner <code>reannz-training-environment</code>, only the <code>training-environment-app-creator</code> repository, with <em>Contents</em> and <em>Pull requests</em> set to read and write.</li>
+            <li><a id="token-link" href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">Create a fine-grained token</a>: resource owner <code>reannz-training-environment</code>, only the <code>training-environment-app-creator</code> repository, with <em>Issues</em> set to read and write.</li>
             <li>Paste it here.</li>
           </ol>
           <div class="field">
@@ -388,7 +388,7 @@
   <dialog id="load-dialog" class="dialog" aria-labelledby="load-title">
     <form method="dialog" class="dialog-body">
       <h2 id="load-title">Edit an existing app</h2>
-      <p id="load-intro">Choose an app from <code>apps/</code>. The pull request will change it.</p>
+      <p id="load-intro">Choose an app from <code>apps/</code>. Your request will change it.</p>
       <select id="load-select" size="8" aria-label="Apps"></select>
       <p class="field-error" id="load-error"></p>
       <div class="dialog-actions">
@@ -399,7 +399,7 @@
   </dialog>
 
   <footer class="site-footer wrap">
-    <p>Specs are checked again, and every image is test-built, before a pull request can be merged. Generated apps follow the NeSI <a href="https://github.com/nesi/training-environment">training environment</a> apps; the GPU and Slurm emulators come from the <a href="https://github.com/nesi/training-environment-jupyter-gpu-app">GPU workshop app</a>.</p>
+    <p>Every request is checked again, and every image test-built, before a maintainer approves it. Generated apps follow the NeSI <a href="https://github.com/nesi/training-environment">training environment</a> apps; the GPU and Slurm emulators come from the <a href="https://github.com/nesi/training-environment-jupyter-gpu-app">GPU workshop app</a>.</p>
   </footer>
 </body>
 </html>
