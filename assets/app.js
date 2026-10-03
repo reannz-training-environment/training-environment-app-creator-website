@@ -243,6 +243,11 @@
     return CARDS.map((c) => c.id).filter((id) => $(`card-${id}`).checked);
   }
 
+  function gpuMode() {
+    const picked = document.querySelector('input[name="gpu-mode"]:checked');
+    return picked ? picked.value : "all";
+  }
+
   function dataItem(row) {
     if (row.type === "github") {
       const item = { type: "github", repo: row.repo.trim() };
@@ -283,6 +288,7 @@
     if (gpu) {
       features.gpu = {
         enabled: true,
+        mode: gpuMode(),
         cards: selectedCards(),
         vram: val("gpu-vram"),
         pytorch: checked("gpu-pytorch"),
@@ -374,7 +380,10 @@
 
     const f = spec.features || {};
     if (f.gpu) {
-      if (!f.gpu.cards.length) err("Choose at least one GPU card.");
+      if (!f.gpu.cards.length) err(f.gpu.mode === "choose" ? "Choose at least one GPU card to offer." : "Choose at least one GPU card.");
+      if (f.gpu.mode === "choose" && f.gpu.cards.length === 1) {
+        warnings.push("With one card there is nothing to choose: the launch form's GPU menu will have one entry.");
+      }
       if (r.cpu < 4) warnings.push("With fewer than 4 CPUs, every small job pins the emulated GPU's utilisation at 100%.");
     }
     if (f.slurm && !f.gpu) {
@@ -664,6 +673,12 @@
     }
     const gpu = checked("gpu-enabled");
     $("gpu-options").hidden = !gpu;
+    const choose = gpuMode() === "choose";
+    $("gpu-cards-legend").textContent = choose ? "Cards learners can choose from" : "Cards on each session's node";
+    $("gpu-vram-label").textContent = choose ? "GPU memory" : "Memory per card";
+    $("gpu-form-label").textContent = choose
+      ? "Learners can change the GPU's memory on the launch form"
+      : "Learners can change each card's memory on the launch form";
     $("slurm-enabled").disabled = gpu;
     if (gpu) $("slurm-enabled").checked = true;
     $("slurm-locked").hidden = !gpu;
@@ -774,9 +789,12 @@
 
   function scheduleDraft(spec) {
     clearTimeout(draftTimer);
-    draftTimer = setTimeout(() => {
-      store(KEYS.draft, JSON.stringify({ spec, rows: dataRows, loaded }));
-    }, 400);
+    draftTimer = setTimeout(() => saveDraft(spec), 400);
+  }
+
+  function saveDraft(spec = readSpec()) {
+    clearTimeout(draftTimer);
+    store(KEYS.draft, JSON.stringify({ spec, rows: dataRows, loaded }));
   }
 
   // ---------------------------------------------------------------- filling
@@ -813,6 +831,7 @@
     setVal("wall-max", wall.max ?? Math.max(12, wall.default ?? 8));
 
     $("gpu-enabled").checked = Boolean(gpu.enabled);
+    for (const radio of document.querySelectorAll('input[name="gpu-mode"]')) radio.checked = radio.value === (gpu.mode || "all");
     const cards = Array.isArray(gpu.cards) ? gpu.cards : CARDS.map((c) => c.id);
     for (const c of CARDS) $(`card-${c.id}`).checked = cards.includes(c.id);
     setVal("gpu-vram", gpu.vram || "200MiB");
@@ -821,8 +840,8 @@
     $("gpu-form").checked = gpu.session_form !== false;
     const slurm = features.slurm || {};
     $("slurm-enabled").checked = Boolean(slurm.enabled) || Boolean(gpu.enabled);
-    setVal("slurm-partition", slurm.partition && !gpu.enabled ? slurm.partition : "compute");
-    setVal("slurm-node", slurm.node_name && !gpu.enabled ? slurm.node_name : "node001");
+    setVal("slurm-partition", slurm.partition && !gpu.enabled ? slurm.partition : "milan");
+    setVal("slurm-node", slurm.node_name && !gpu.enabled ? slurm.node_name : "c001");
     $("lmod-enabled").checked = Boolean(features.lmod && features.lmod.enabled);
 
     const sw = spec.software || {};
@@ -1258,6 +1277,12 @@
   function start() {
     buildControls();
     wire();
+    // save straight away when the page goes, rather than lose the last edit
+    // to the save delay - e.g. when the pull request opens in a new tab
+    window.addEventListener("pagehide", () => saveDraft());
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden") saveDraft();
+    });
     if (!restoreDraft()) resetForm();
     if (getToken()) $("token-status").textContent = "A token is in use.";
     render();

@@ -114,20 +114,27 @@
           </label>
           <p class="feature-text">NVIDIA cards that <code>nvidia-smi</code>, <code>nvtop</code>, Slurm and PyTorch all see, with real memory limits. There is no physical GPU: everything runs on the CPU, so timings say nothing about GPU performance.</p>
           <div class="feature-options" id="gpu-options" hidden>
+            <fieldset class="mode-set">
+              <legend>GPUs in each session</legend>
+              <label class="check"><input type="radio" name="gpu-mode" value="all" checked>
+                <span><strong>Several at once.</strong> Every card below is on the session's node, so learners practise asking for the right one with <code>--gpus-per-node</code>.</span></label>
+              <label class="check"><input type="radio" name="gpu-mode" value="choose">
+                <span><strong>One, chosen at launch.</strong> The session has a single GPU, which the learner picks from a menu on the launch form.</span></label>
+            </fieldset>
             <fieldset class="chip-set">
-              <legend>Cards on each session's node</legend>
+              <legend id="gpu-cards-legend">Cards on each session's node</legend>
               <div id="gpu-cards" class="chips"></div>
             </fieldset>
             <div class="grid">
               <div class="field">
-                <label for="gpu-vram">Memory per card</label>
+                <label for="gpu-vram" id="gpu-vram-label">Memory per card</label>
                 <select id="gpu-vram"></select>
                 <p class="hint">A small card makes out-of-memory errors cheap to teach.</p>
               </div>
             </div>
             <label class="check"><input type="checkbox" id="gpu-pytorch" checked> PyTorch (CPU build), with <code>torch.cuda</code> using the emulated cards</label>
             <label class="check"><input type="checkbox" id="gpu-numba" checked> Numba's CUDA simulator, for writing GPU kernels</label>
-            <label class="check"><input type="checkbox" id="gpu-form" checked> Learners can change each card's memory on the launch form</label>
+            <label class="check"><input type="checkbox" id="gpu-form" checked> <span id="gpu-form-label">Learners can change each card's memory on the launch form</span></label>
           </div>
         </div>
 
@@ -137,17 +144,17 @@
             <span class="switch-track" aria-hidden="true"></span>
             <span class="feature-title">Slurm</span>
           </label>
-          <p class="feature-text">A single-node scheduler in the session: <code>sbatch</code>, <code>squeue</code>, <code>scancel</code>, <code>sinfo</code>, <code>sacct</code>, <code>seff</code>, with Slurm's options and output.</p>
+          <p class="feature-text">A single-node scheduler in the session: <code>sbatch</code>, <code>squeue</code>, <code>scancel</code>, <code>sinfo</code>, <code>sacct</code>, with Slurm's options and output, plus NeSI's own <code>seff</code> and <code>svisit</code> from <a href="https://github.com/nesi/opt-nesi-bin">opt-nesi-bin</a>.</p>
           <p class="feature-note" id="slurm-locked" hidden>Always on with emulated GPUs, which are requested through Slurm. Their node is <code>gpunode001</code> in partition <code>gpu</code>.</p>
           <div class="feature-options" id="slurm-options" hidden>
             <div class="grid">
               <div class="field">
                 <label for="slurm-partition">Partition</label>
-                <input id="slurm-partition" spellcheck="false" value="compute">
+                <input id="slurm-partition" spellcheck="false" value="milan">
               </div>
               <div class="field">
                 <label for="slurm-node">Node name</label>
-                <input id="slurm-node" spellcheck="false" value="node001">
+                <input id="slurm-node" spellcheck="false" value="c001">
               </div>
             </div>
           </div>

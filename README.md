@@ -36,7 +36,7 @@ python3 -m http.server 8000      # then open http://localhost:8000
 ```
 
 | File | |
-|---|---|
+| --- | --- |
 | `index.html` | the form |
 | `assets/app.js` | builds the spec, checks it, and opens the pull request |
 | `assets/app.css` | styles, light and dark |

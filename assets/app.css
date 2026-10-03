@@ -339,6 +339,9 @@ input[type="checkbox"] { width: auto; accent-color: var(--accent); }
 .feature-title { font-weight: 700; font-size: 16px; }
 
 fieldset { border: 0; padding: 0; margin: 0 0 10px; min-width: 0; }
+.mode-set { margin-bottom: 14px; }
+.mode-set .check { margin-top: 6px; }
+input[type="radio"] { width: auto; accent-color: var(--accent); }
 
 .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
 
