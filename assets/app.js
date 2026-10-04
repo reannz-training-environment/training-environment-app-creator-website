@@ -1048,7 +1048,7 @@
     return `### App spec\n\n\`\`\`yaml\n${yaml.replace(/\n+$/, "")}\n\`\`\`\n`;
   }
 
-  const NEXT = `The app creator then opens the pull request and test-builds every image (10 to 30 minutes), and a maintainer approves it. Once it is approved, the app's repositories are made and their images built. GitHub notifies you as it goes, and when the app is ready.`;
+  const NEXT = `A maintainer first accepts the request. The app creator then opens the pull request and test-builds every image (10 to 30 minutes), and a maintainer approves it. Once it is approved, the app's repositories are made and their images built. GitHub notifies you as it goes, and when the app is ready.`;
 
   function showResult(html, isError = false) {
     const box = $("result");

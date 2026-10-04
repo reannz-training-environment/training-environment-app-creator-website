@@ -28,8 +28,7 @@ one field is the app spec.
   in (`issues/new?template=app-request.yml&spec=...`), and the trainer presses
   **Create**. This is also the fallback if signing in fails.
 
-Members of the organisation and its outside collaborators have their requests
-built straight away; anyone else's wait for a maintainer.
+A maintainer accepts each request before the app creator builds it.
 
 The app creator reads the spec back out of the issue, so the issue body must
 stay in the shape GitHub gives a form's field: `### App spec`, then the YAML in
