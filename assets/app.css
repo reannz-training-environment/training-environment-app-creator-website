@@ -491,17 +491,18 @@ input[type="radio"] { width: auto; accent-color: var(--accent); }
 .result p:last-child { margin-bottom: 0; }
 .result ol { margin: 6px 0 0; padding-left: 20px; }
 
-.token-panel {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-small);
-  padding: 10px 12px;
-  font-size: 14px;
-}
+.account { margin: 0; }
 
-.token-panel summary { cursor: pointer; font-weight: 600; }
-.token-panel p { margin: 8px 0; }
-.token-panel .steps { margin: 8px 0; padding-left: 20px; }
-.token-actions { display: flex; gap: 8px; margin-top: 8px; }
+/* a button that reads as a link, inside text */
+.link-button {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
 
 .yaml-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .yaml-head h3 { margin: 0; font-size: 14px; }

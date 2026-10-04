@@ -321,24 +321,7 @@
         <p class="hint" id="pr-mode"></p>
         <div id="result" class="result" aria-live="polite" hidden></div>
 
-        <details class="token-panel" id="token-panel">
-          <summary>Skip GitHub's Create button with a token</summary>
-          <p>Without a token, the button opens GitHub with the request filled in, for you to press <em>Create</em>: this page has no server of its own to send it. With a token, it sends the request itself. The token stays in this browser and is only sent to GitHub.</p>
-          <ol class="steps">
-            <li><a id="token-link" href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">Create a fine-grained token</a>: resource owner <code>reannz-training-environment</code>, only the <code>training-environment-app-creator</code> repository, with <em>Issues</em> set to read and write.</li>
-            <li>Paste it here.</li>
-          </ol>
-          <div class="field">
-            <label for="token">Token</label>
-            <input id="token" type="password" spellcheck="false" placeholder="github_pat_...">
-          </div>
-          <label class="check"><input type="checkbox" id="token-remember"> Remember on this device</label>
-          <div class="token-actions">
-            <button type="button" class="button secondary" id="token-save">Use token</button>
-            <button type="button" class="button ghost" id="token-forget">Forget</button>
-          </div>
-          <p class="hint" id="token-status"></p>
-        </details>
+        <p class="hint account" id="account" hidden></p>
 
         <div class="yaml-head">
           <h3>The app spec</h3>

@@ -15,15 +15,21 @@ their images. Its README explains how.
 ## How the page sends the request
 
 A request is an issue made with the app creator's *Request an app* form, whose
-one field is the app spec. The page is static, with no server of its own, so:
+one field is the app spec.
 
-* **Without a token** it opens that form on GitHub with everything filled in
-  (`issues/new?template=app-request.yml&spec=...`), and the trainer presses
-  **Create**. Anyone in the organisation can, with read access.
-* **With a token** (a fine-grained token with Issues write access to the app
-  creator repository) it files the issue itself through the GitHub API, so
-  there is nothing to press on GitHub. The token stays in the browser, and is
-  sent only to `api.github.com`.
+* **Signed in with GitHub**, the page files the issue itself, as the trainer,
+  so there is nothing to press on GitHub. The first press of the button sends
+  them to GitHub to sign in; the first time, GitHub asks them to authorise the
+  app creator. The sign-in lasts 8 hours in that tab, after which GitHub signs
+  them in again without asking. Signing in needs the
+  [sign-in helper](sign-in/README.md): until `SIGN_IN` in `assets/app.js` names
+  it, the page works as below.
+* **Not signed in**, the page opens the form on GitHub with everything filled
+  in (`issues/new?template=app-request.yml&spec=...`), and the trainer presses
+  **Create**. This is also the fallback if signing in fails.
+
+Members of the organisation and its outside collaborators have their requests
+built straight away; anyone else's wait for a maintainer.
 
 The app creator reads the spec back out of the issue, so the issue body must
 stay in the shape GitHub gives a form's field: `### App spec`, then the YAML in
@@ -55,6 +61,7 @@ python3 -m http.server 8000      # then open http://localhost:8000
 | `index.html` | the form |
 | `assets/app.js` | builds the spec, checks it, and sends the request |
 | `assets/app.css` | styles, light and dark |
+| `sign-in/worker.js` | the sign-in helper, which runs on Cloudflare Workers, not here ([setting it up](sign-in/README.md)) |
 | `assets/vendor/js-yaml.min.js` | [js-yaml](https://github.com/nodeca/js-yaml) 4.1.0 (MIT), to write and read YAML |
 
 GitHub Pages publishes `main` as it is; there is no build step.

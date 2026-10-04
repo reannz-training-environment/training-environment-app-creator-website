@@ -3,9 +3,10 @@
  *
  * Builds an app spec (apps/<name>.yml) from the form, checks it with the same
  * rules as the app creator's schema, and files it as an app request: an issue
- * made with the app creator's "Request an app" form. GitHub opens with the
- * form filled in, or, with a token, the request is filed through the API. The
- * app creator turns the request into the pull request.
+ * made with the app creator's "Request an app" form. Signed in with GitHub,
+ * the page files it itself, as the requester; otherwise GitHub opens with the
+ * form filled in, for them to press Create. The app creator turns the request
+ * into the pull request.
  */
 (() => {
   "use strict";
@@ -17,7 +18,22 @@
   const CREATOR = `https://github.com/${OWNER}/${REPO}`;
   const SCHEMA_URL = `${CREATOR}/blob/${BRANCH}/schema/app.schema.json`;
   const API = "https://api.github.com";
-  const KEYS = { draft: "app-creator:draft", token: "app-creator:token" };
+  const KEYS = {
+    draft: "app-creator:draft",
+    auth: "app-creator:auth", // the signed-in person's token, for this tab only
+    signIn: "app-creator:sign-in", // a sign-in under way: its state and PKCE verifier
+    pending: "app-creator:pending", // the request to file once signed in
+  };
+
+  // Signing in with GitHub, so that the button files the request itself.
+  // GitHub only finishes a sign-in for something holding the sign-in App's
+  // client secret, which a web page cannot keep, so a small helper does that
+  // one step (sign-in/README.md). Until both are set, the button opens
+  // GitHub's request form instead, for the requester to press Create.
+  const SIGN_IN = window.APP_CREATOR_SIGN_IN || { clientId: "", helper: "" };
+  const CAN_SIGN_IN = Boolean(SIGN_IN.clientId && SIGN_IN.helper);
+  // where GitHub sends people back to: the sign-in App's callback URL
+  const HOME = `${location.origin}${location.pathname.replace(/index\.html$/, "")}`;
   const DEFAULTS = { rstudioImage: "rocker/rstudio", rVersion: "4.5.3", channels: "conda-forge, bioconda" };
 
   const INTERFACES = [
@@ -193,10 +209,117 @@
     }
   }
 
-  // ----------------------------------------------------------------- token
+  // --------------------------------------------------------------- sign-in
+
+  // the signed-in person, {token, login, expires}, while their token lasts
+  function account() {
+    try {
+      const auth = JSON.parse(recall(KEYS.auth, "session") || "null");
+      return auth && auth.expires > Date.now() + 60000 ? auth : null;
+    } catch {
+      return null;
+    }
+  }
 
   function getToken() {
-    return recall(KEYS.token, "session") || recall(KEYS.token, "local") || "";
+    const auth = account();
+    return auth ? auth.token : "";
+  }
+
+  function base64url(bytes) {
+    return btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  }
+
+  function randomText(length) {
+    const bytes = new Uint8Array(length);
+    crypto.getRandomValues(bytes);
+    return base64url(bytes);
+  }
+
+  // PKCE: GitHub only accepts the code back with the verifier behind this
+  async function challengeFor(verifier) {
+    const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier));
+    return base64url(new Uint8Array(digest));
+  }
+
+  // off to GitHub to sign in; `pending` is the request to file on the way back
+  async function signIn(pending) {
+    const state = randomText(16);
+    const verifier = randomText(48);
+    store(KEYS.signIn, JSON.stringify({ state, verifier }), "session");
+    store(KEYS.pending, pending ? JSON.stringify(pending) : null, "session");
+    saveDraft();
+    const params = new URLSearchParams({
+      client_id: SIGN_IN.clientId,
+      redirect_uri: HOME,
+      state,
+      code_challenge: await challengeFor(verifier),
+      code_challenge_method: "S256",
+    });
+    location.assign(`https://github.com/login/oauth/authorize?${params}`);
+  }
+
+  function signOut() {
+    store(KEYS.auth, null, "session");
+    renderAccount();
+    render();
+  }
+
+  // back from GitHub: swap its code for a token, then file the pending request
+  async function finishSignIn() {
+    const params = new URLSearchParams(location.search);
+    if (!params.has("code") && !params.has("error")) return;
+    // the code is single use; keep it out of the address bar and history
+    history.replaceState(null, "", `${location.pathname}${location.hash}`);
+    let saved = null;
+    let pending = null;
+    try {
+      saved = JSON.parse(recall(KEYS.signIn, "session") || "null");
+      pending = JSON.parse(recall(KEYS.pending, "session") || "null");
+    } catch {
+      /* treated as no sign-in under way */
+    }
+    store(KEYS.signIn, null, "session");
+    store(KEYS.pending, null, "session");
+
+    const fail = (why) => {
+      showResult(`<p><strong>You are not signed in:</strong> ${esc(why)}</p>${formFallback(pending)}`, true);
+      wireFormFallback(pending);
+    };
+    if (params.has("error")) {
+      fail(params.get("error") === "access_denied" ? "GitHub was not given permission." : params.get("error_description") || params.get("error"));
+      return;
+    }
+    if (!saved || saved.state !== params.get("state")) {
+      fail("GitHub's answer did not match a sign-in started on this page. Try again.");
+      return;
+    }
+    try {
+      const res = await fetch(SIGN_IN.helper, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: params.get("code"), code_verifier: saved.verifier, redirect_uri: HOME }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.access_token) throw new Error(data.error_description || data.error || `the sign-in helper answered ${res.status}`);
+      const user = await gh("/user", { token: data.access_token });
+      const expires = Date.now() + (data.expires_in || 28800) * 1000;
+      store(KEYS.auth, JSON.stringify({ token: data.access_token, login: user.login, expires }), "session");
+    } catch (e) {
+      fail(e.message);
+      return;
+    }
+    renderAccount();
+    render();
+    if (pending) await fileRequest(pending, { justSignedIn: true });
+  }
+
+  function renderAccount() {
+    const el = $("account");
+    const auth = CAN_SIGN_IN && account();
+    el.hidden = !auth;
+    el.innerHTML = auth ? `Signed in to GitHub as <strong>@${esc(auth.login)}</strong>. <button type="button" class="link-button" id="sign-out">Sign out</button>` : "";
+    if (auth) $("sign-out").addEventListener("click", signOut);
   }
 
   function authHeaders(token = getToken()) {
@@ -602,7 +725,7 @@
         e.status === 404 || e.status === 422
           ? "Not found. The repository must be public, and the ref must exist."
           : e.status === 403
-            ? "GitHub's rate limit for this page was reached; try again later, or add a token."
+            ? "GitHub's rate limit for this page was reached; try again later, or sign in."
             : `Could not look it up: ${e.message}`;
     }
   }
@@ -721,7 +844,7 @@
 
     const button = $("create-pr");
     button.disabled = busy || errors.length > 0;
-    const token = getToken();
+    const auth = CAN_SIGN_IN && account();
     const editing = loaded && loaded.name === spec.name;
     button.textContent = busy ? "Working..." : editing ? "Create pull request to update the app" : "Create pull request";
     const missing = [!spec.name && "a name", !spec.title && "a title"].filter(Boolean);
@@ -729,9 +852,11 @@
       ? shownErrors.length
         ? "Fix the problems above first."
         : `Give the app ${missing.join(" and ")} to start.`
-      : token
-        ? "Sends the request with your token. The app creator does the rest."
-        : "Opens GitHub with the request filled in: press Create there, and the app creator does the rest.";
+      : auth
+        ? `Files the request on GitHub as @${auth.login}. The app creator does the rest.`
+        : CAN_SIGN_IN
+          ? "Signs you in with GitHub, then files the request. The first time, GitHub asks you to authorise the app creator."
+          : "Opens GitHub with the request filled in: press Create there, and the app creator does the rest.";
 
     $("yaml-preview").textContent = toYaml(spec);
     updatePresets();
@@ -926,8 +1051,8 @@
   }
 
   // GitHub's request form, filled in; the requester only presses Create
-  function openRequestForm(spec, yaml) {
-    const form = `${CREATOR}/issues/new?${new URLSearchParams({ template: REQUEST_FORM, title: requestTitle(spec) })}`;
+  function openRequestForm({ title, yaml }) {
+    const form = `${CREATOR}/issues/new?${new URLSearchParams({ template: REQUEST_FORM, title })}`;
     let url = `${form}&${new URLSearchParams({ spec: yaml })}`;
     const tooLong = url.length > MAX_URL;
     if (tooLong) url = form;
@@ -950,26 +1075,48 @@
       <p class="hint">GitHub may ask you to sign in first.</p>`);
   }
 
-  // with a token, the request is filed straight away
-  async function fileWithApi(spec, yaml) {
+  // when filing a request fails: GitHub's request form still works
+  function formFallback(pending) {
+    return pending ? `<p><button type="button" class="link-button" id="use-form">Open GitHub's request form instead</button>, and press <em>Create</em> there.</p>` : "";
+  }
+
+  function wireFormFallback(pending) {
+    const button = $("use-form");
+    if (button) button.addEventListener("click", () => openRequestForm(pending));
+  }
+
+  // signed in, the request is filed straight away, as the signed-in person
+  async function fileRequest(pending, { justSignedIn = false } = {}) {
+    const auth = account();
+    if (!auth) {
+      await signIn(pending);
+      return;
+    }
     busy = true;
     render();
     try {
       const issue = await gh(`/repos/${OWNER}/${REPO}/issues`, {
         method: "POST",
-        body: { title: requestTitle(spec), body: requestBody(yaml), labels: ["app request"] },
+        token: auth.token,
+        body: { title: pending.title, body: requestBody(pending.yaml), labels: ["app request"] },
       });
       showResult(`
-        <p><strong>Request #${issue.number} is in:</strong> <a href="${esc(issue.html_url)}" target="_blank" rel="noopener">${esc(issue.title)}</a>. Nothing else is needed.</p>
+        <p><strong>Request #${issue.number} is in:</strong> <a href="${esc(issue.html_url)}" target="_blank" rel="noopener">${esc(issue.title)}</a>, filed as @${esc(auth.login)}. Nothing else is needed.</p>
         <p>${NEXT}</p>`);
     } catch (e) {
+      if (e.status === 401 && !justSignedIn) {
+        // the sign-in ran out or was withdrawn: sign in again, which GitHub
+        // does without asking once the app creator is authorised
+        store(KEYS.auth, null, "session");
+        await signIn(pending);
+        return;
+      }
       const hint =
-        e.status === 401
-          ? "The token is not valid any more."
-          : e.status === 403 || e.status === 404 || e.status === 410
-            ? "The token needs Issues (read and write) on training-environment-app-creator."
-            : "";
-      showResult(`<p><strong>The request was not sent.</strong> ${esc(e.message)}</p>${hint ? `<p>${esc(hint)}</p>` : ""}`, true);
+        e.status === 403 || e.status === 404 || e.status === 410
+          ? "GitHub would not let the sign-in file it. The app creator's sign-in App may not be installed on the app creator repository yet."
+          : "";
+      showResult(`<p><strong>The request was not sent.</strong> ${esc(e.message)}</p>${hint ? `<p>${esc(hint)}</p>` : ""}${formFallback(pending)}`, true);
+      wireFormFallback(pending);
     } finally {
       busy = false;
       render();
@@ -983,9 +1130,9 @@
       render();
       return;
     }
-    const yaml = toYaml(spec);
-    if (getToken()) fileWithApi(spec, yaml);
-    else openRequestForm(spec, yaml);
+    const pending = { title: requestTitle(spec), yaml: toYaml(spec) };
+    if (CAN_SIGN_IN) fileRequest(pending);
+    else openRequestForm(pending);
   }
 
   // ---------------------------------------------------------------- dialogs
@@ -1168,51 +1315,6 @@
     $("load-apply").addEventListener("click", loadSelectedApp);
     $("load-select").addEventListener("dblclick", loadSelectedApp);
 
-    // token
-    $("token-link").href =
-      "https://github.com/settings/personal-access-tokens/new?" +
-      new URLSearchParams({
-        name: "Training environment app creator",
-        description: "Files app requests from the app creator website",
-        target_name: OWNER,
-        expires_in: "90",
-        issues: "write",
-      }).toString();
-    $("token-save").addEventListener("click", async () => {
-      const token = $("token").value.trim();
-      const status = $("token-status");
-      if (!token) {
-        status.textContent = "Paste a token first.";
-        return;
-      }
-      status.textContent = "Checking the token...";
-      try {
-        await gh(`/repos/${OWNER}/${REPO}`, { token });
-        store(KEYS.token, null, "local");
-        store(KEYS.token, null, "session");
-        store(KEYS.token, token, checked("token-remember") ? "local" : "session");
-        $("token").value = "";
-        status.textContent = checked("token-remember")
-          ? "The token works, and is remembered on this device."
-          : "The token works, for as long as this tab is open.";
-        specState.clear();
-        render();
-      } catch (e) {
-        status.textContent =
-          e.status === 401
-            ? "GitHub did not accept that token."
-            : e.status === 404
-              ? "That token cannot see training-environment-app-creator: give it access to that repository."
-              : `Could not check the token: ${e.message}`;
-      }
-    });
-    $("token-forget").addEventListener("click", () => {
-      store(KEYS.token, null, "local");
-      store(KEYS.token, null, "session");
-      $("token").value = "";
-      $("token-status").textContent = "Forgotten.";
-      render();
-    });
   }
 
   function restoreDraft() {
@@ -1243,8 +1345,9 @@
       if (document.visibilityState === "hidden") saveDraft();
     });
     if (!restoreDraft()) resetForm();
-    if (getToken()) $("token-status").textContent = "A token is in use.";
+    renderAccount();
     render();
+    if (CAN_SIGN_IN) finishSignIn();
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
