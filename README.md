@@ -31,15 +31,10 @@ a fenced block.
 
 ## Space needed
 
-The panel estimates the space the app needs: the data each learner gets in
-their home directory (and so the home directories' total, for a number of
-learners), and the image each worker node stores. Data from a GitHub
-repository is sized exactly, from the sizes of the repository's files at the
-chosen ref; a download from a GitHub release from the release; other downloads
-only if their server answers the page. Software is estimated from `TYPICAL` in
-`assets/app.js`, sizes measured on images the app creator built; update them
-from the Validate workflow's measurements when the templates change. The pull
-request's checks measure every image exactly.
+The page does not estimate the space an app needs. The app creator measures
+it exactly when it test-builds the request's images: each image, and the data
+every learner gets in their home directory. It shows the result on the
+request and on its pull request.
 
 ## Checking
 

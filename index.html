@@ -314,26 +314,7 @@
         <p class="panel-file">Becomes <code id="spec-path">apps/&lt;name&gt;.yml</code> in <a href="https://github.com/reannz-training-environment/training-environment-app-creator">training-environment-app-creator</a>. Once approved, it makes:</p>
         <ul class="repo-list" id="repo-list"></ul>
 
-        <section class="estimate" aria-labelledby="h-estimate">
-          <div class="estimate-head">
-            <h3 id="h-estimate">Space needed</h3>
-            <span class="badge">estimate</span>
-          </div>
-          <div class="estimate-row">
-            <span>Data, copied into each learner's home</span>
-            <strong id="est-data">none</strong>
-          </div>
-          <div class="estimate-row">
-            <label for="learners">Home directories for <input id="learners" type="number" min="1" max="5000" value="30"> learners</label>
-            <strong id="est-homes">none</strong>
-          </div>
-          <div id="est-images"></div>
-          <details class="estimate-details">
-            <summary>How it adds up</summary>
-            <ul id="est-breakdown"></ul>
-          </details>
-          <p class="hint">Each worker node that runs the app stores its image once. Data from GitHub is sized exactly; software is a rough guide, measured exactly when the pull request's checks build it.</p>
-        </section>
+        <p class="hint">The space the app needs is measured when its images are test-built: each image, and the data every learner gets in their home directory. It is shown on the request and its pull request.</p>
 
         <div id="messages" class="messages" aria-live="polite"></div>
         <button type="button" class="button primary wide" id="create-pr">Create pull request</button>

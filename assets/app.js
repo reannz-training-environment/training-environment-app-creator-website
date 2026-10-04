@@ -529,7 +529,6 @@
               </div>
               ${dest}
             </div>
-            <p class="hint size-note" id="size-note-${row.id}" aria-live="polite"></p>
           </div>`;
         }
         return `
@@ -555,7 +554,6 @@
               </div>
               ${dest}
             </div>
-            <p class="hint size-note" id="size-note-${row.id}" aria-live="polite"></p>
           </div>`;
       })
       .join("");
@@ -607,253 +605,6 @@
             ? "GitHub's rate limit for this page was reached; try again later, or add a token."
             : `Could not look it up: ${e.message}`;
     }
-  }
-
-  // ----------------------------------------------------------------- sizes
-  //
-  // Data from GitHub is sized exactly, from the file sizes in the repository's
-  // tree at the chosen ref. A download from a GitHub release is sized from the
-  // release; any other download only if its server answers a cross-site HEAD.
-  // Software is estimated from the sizes the app creator's checks measured on
-  // real builds (TYPICAL); the pull request's checks then measure it exactly.
-
-  const MB = 1e6;
-  const GB = 1e9;
-
-  // On-disk sizes the app creator's Validate workflow measured on the example
-  // apps (October 2026); update them from its reports when the templates change.
-  // The other rocker images are rocker/rstudio plus the difference in their
-  // Docker Hub sizes. Packages vary most: two conda tools took 161 MB, or
-  // 621 MB when one of them (fastqc) needed Java.
-  const TYPICAL = {
-    base: { jupyter: 0.97 * GB, codeserver: 1.53 * GB },
-    rstudio: {
-      "rocker/rstudio": 2.83 * GB,
-      "rocker/tidyverse": 3.4 * GB,
-      "rocker/verse": 4.5 * GB,
-      "rocker/geospatial": 4.4 * GB,
-    },
-    gpu: 180 * MB, // emulator, nvtop, NVML, matplotlib
-    pytorch: 860 * MB,
-    numba: 170 * MB,
-    slurm: 150 * MB, // emulator and matplotlib, when there are no GPUs
-    lmod: 35 * MB,
-    condaEnv: 60 * MB,
-    perPackage: { conda: 150 * MB, pip: 35 * MB, apt: 15 * MB, cran: 15 * MB, bioc: 40 * MB, rgithub: 10 * MB, vscode: 20 * MB },
-  };
-
-  const sizes = new Map(); // key -> {state: "pending" | "ok" | "unknown" | "error", bytes, files, kind, note}
-  let sizingTimer = null;
-  let sizing = false;
-
-  // as Docker counts (1 GB = 1000^3 bytes), with a decimal place below 10
-  function human(n) {
-    for (const [unit, size] of [["GB", GB], ["MB", MB], ["kB", 1e3]]) {
-      if (n >= size) {
-        const value = n / size;
-        return `${value < 10 || unit === "GB" ? value.toFixed(1) : Math.round(value)} ${unit}`;
-      }
-    }
-    return `${Math.round(n)} B`;
-  }
-
-  function sizeKey(row) {
-    if (row.type === "github") {
-      const repo = row.repo.trim();
-      if (!RE.repo.test(repo)) return null;
-      const ref = row.ref.trim();
-      if (ref && !RE.ref.test(ref)) return null;
-      return `gh|${repo}|${ref}|${trimSlashes(row.path)}`;
-    }
-    const url = row.url.trim();
-    return RE.dataUrl.test(url) && fileName(url) ? `url|${url}` : null;
-  }
-
-  async function sizeGithub(repo, ref, path) {
-    let tree = ref;
-    if (!tree) tree = (await gh(`/repos/${repo}`)).default_branch;
-    const listing = await gh(`/repos/${repo}/git/trees/${encodeURIComponent(tree)}?recursive=1`);
-    const prefix = path ? `${path}/` : "";
-    let bytes = 0;
-    let files = 0;
-    for (const entry of listing.tree) {
-      if (entry.type === "blob" && (!prefix || entry.path.startsWith(prefix))) {
-        bytes += entry.size || 0;
-        files += 1;
-      }
-    }
-    if (prefix && !files) return { state: "error", note: `There is no folder ${path} at ${tree}.` };
-    return { state: "ok", kind: "files", bytes, files, partial: listing.truncated };
-  }
-
-  async function sizeUrl(url) {
-    const release = url.match(/^https:\/\/github\.com\/([^/]+)\/([^/]+)\/releases\/download\/([^/]+)\/([^/?#]+)$/);
-    if (release) {
-      const [, owner, name, tag, file] = release.map((part) => decodeURIComponent(part));
-      const found = await gh(`/repos/${owner}/${name}/releases/tags/${encodeURIComponent(tag)}`, { allow: [404] });
-      const asset = found && found.assets.find((a) => a.name === file);
-      if (!asset) return { state: "error", note: `No ${file} in release ${tag} of ${owner}/${name}.` };
-      return { state: "ok", kind: "download", bytes: asset.size };
-    }
-    try {
-      const res = await fetch(url, { method: "HEAD" });
-      const length = Number(res.headers.get("content-length"));
-      if (res.ok && length > 0) return { state: "ok", kind: "download", bytes: length };
-    } catch {
-      /* the server does not allow this page to ask */
-    }
-    return { state: "unknown" };
-  }
-
-  async function measureRow(row, key) {
-    try {
-      if (row.type === "github") {
-        const [, repo, ref, path] = key.split("|");
-        return await sizeGithub(repo, ref, path);
-      }
-      return await sizeUrl(row.url.trim());
-    } catch (e) {
-      if (e.status === 403 || e.status === 429) {
-        return { state: "unknown", retry: true, note: "GitHub's rate limit for this page was reached; a token lifts it." };
-      }
-      if (e.status === 404 || e.status === 422) {
-        return { state: "error", note: "Not found: the repository must be public, and the branch, tag or commit must exist." };
-      }
-      return { state: "unknown", retry: true };
-    }
-  }
-
-  function scheduleSizing() {
-    clearTimeout(sizingTimer);
-    sizingTimer = setTimeout(runSizing, 800);
-  }
-
-  async function runSizing() {
-    if (sizing) return;
-    sizing = true;
-    try {
-      for (const row of [...dataRows]) {
-        const key = sizeKey(row);
-        const known = key && sizes.get(key);
-        // ask again after a failure that may pass (rate limit, network), but not straight away
-        if (!key || (known && !(known.retry && Date.now() > known.retryAt))) continue;
-        sizes.set(key, { state: "pending" });
-        renderSizes();
-        const result = await measureRow(row, key);
-        if (result.retry) result.retryAt = Date.now() + 60000;
-        sizes.set(key, result);
-        renderSizes();
-      }
-    } finally {
-      sizing = false;
-    }
-  }
-
-  function rowSizeNote(row) {
-    const key = sizeKey(row);
-    const size = key && sizes.get(key);
-    if (!size) return { text: "", warn: false };
-    if (size.state === "pending") return { text: "Working out the size...", warn: false };
-    if (size.state === "error") return { text: size.note, warn: true };
-    if (size.state === "unknown") {
-      return { text: size.note || "Size not known until the pull request's checks build it.", warn: false };
-    }
-    if (size.kind === "files") {
-      const files = `${size.files} file${size.files === 1 ? "" : "s"}`;
-      return { text: `${size.partial ? "At least " : ""}${human(size.bytes)} in ${files}.`, warn: false };
-    }
-    const unpacked = row.extract === "yes" || (row.extract === "auto" && ARCHIVES.some((s) => fileName(row.url.trim()).toLowerCase().endsWith(s)));
-    return { text: `${human(size.bytes)} to download${unpacked ? "; unpacked, it is usually larger" : ""}.`, warn: false };
-  }
-
-  // The data, as far as it is known: [bytes, how many sources are not known]
-  function dataTotal() {
-    let bytes = 0;
-    let unknown = 0;
-    for (const row of dataRows) {
-      const key = sizeKey(row);
-      const size = key && sizes.get(key);
-      if (size && size.state === "ok") bytes += size.bytes;
-      else unknown += 1;
-    }
-    return [bytes, unknown];
-  }
-
-  function imageEstimate(spec, iface) {
-    const items = [];
-    const sw = spec.software || {};
-    const f = spec.features || {};
-    const count = (list) => (list ? list.length : 0);
-    if (iface === "rstudio") {
-      const image = (spec.advanced && spec.advanced.rstudio_image) || DEFAULTS.rstudioImage;
-      items.push([`R, RStudio and the base system (${image})`, TYPICAL.rstudio[image] || TYPICAL.rstudio[DEFAULTS.rstudioImage]]);
-    } else {
-      items.push([iface === "jupyter" ? "JupyterLab and the base system" : "VS Code and the base system", TYPICAL.base[iface]]);
-    }
-    if (f.gpu) {
-      let gpu = TYPICAL.gpu;
-      const parts = [];
-      if (f.gpu.pytorch) {
-        gpu += TYPICAL.pytorch;
-        parts.push("PyTorch");
-      }
-      if (f.gpu.numba) {
-        gpu += TYPICAL.numba;
-        parts.push("Numba");
-      }
-      items.push([`Emulated GPUs${parts.length ? ` with ${parts.join(" and ")}` : ""}`, gpu]);
-    } else if (f.slurm) {
-      items.push(["Slurm emulator", TYPICAL.slurm]);
-    }
-    if (f.lmod) items.push(["Lmod", TYPICAL.lmod]);
-    const per = TYPICAL.perPackage;
-    const add = (n, label, bytes) => {
-      if (n) items.push([`${n} ${label}${n === 1 ? "" : "s"} (rough)`, bytes]);
-    };
-    if (sw.conda) add(count(sw.conda.packages), "conda package", TYPICAL.condaEnv + count(sw.conda.packages) * per.conda);
-    add(count(sw.pip), "Python package", count(sw.pip) * per.pip);
-    add(count(sw.apt), "system package", count(sw.apt) * per.apt);
-    if (iface === "rstudio" && sw.r) {
-      const r = sw.r;
-      const n = count(r.cran) + count(r.bioconductor) + count(r.github);
-      add(n, "R package", count(r.cran) * per.cran + count(r.bioconductor) * per.bioc + count(r.github) * per.rgithub);
-    }
-    if (iface === "codeserver") add(count(sw.vscode_extensions), "VS Code extension", count(sw.vscode_extensions) * per.vscode);
-    const [data] = dataTotal();
-    if (data) items.push(["Data", data]);
-    return { items, bytes: items.reduce((sum, [, b]) => sum + b, 0) };
-  }
-
-  function renderSizes() {
-    for (const row of dataRows) {
-      const el = $(`size-note-${row.id}`);
-      if (!el) continue;
-      const note = rowSizeNote(row);
-      el.textContent = note.text;
-      el.classList.toggle("warn", note.warn);
-    }
-
-    const spec = readSpec();
-    const [data, unknown] = dataTotal();
-    const learners = Math.max(1, Number.parseInt($("learners").value, 10) || 1);
-    const more = unknown ? ` + ${unknown} not known yet` : "";
-    $("est-data").textContent = dataRows.length ? `${human(data)}${more}` : "none";
-    $("est-homes").textContent = dataRows.length ? `${unknown ? "at least " : ""}${human(data * learners)}` : "none";
-
-    const images = spec.interfaces.map((iface) => [iface, imageEstimate(spec, iface)]);
-    $("est-images").innerHTML = images
-      .map(([iface, est]) => `
-        <div class="estimate-row">
-          <span>${esc(INTERFACES.find((i) => i.id === iface).label)} image, per worker node</span>
-          <strong>about ${esc(human(est.bytes))}</strong>
-        </div>`)
-      .join("");
-    $("est-breakdown").innerHTML = images
-      .map(([iface, est]) =>
-        [`<li class="group"><span>${esc(INTERFACES.find((i) => i.id === iface).label)}</span><span>${esc(human(est.bytes))}</span></li>`]
-          .concat(est.items.map(([label, bytes]) => `<li><span>${esc(label)}</span><span>${esc(human(bytes))}</span></li>`))
-          .join(""))
-      .join("");
   }
 
   // --------------------------------------------------------------- presets
@@ -995,8 +746,6 @@
       if (input) input.placeholder = defaultDest(row) || "folder";
     }
 
-    renderSizes();
-    scheduleSizing();
     scheduleAvailability(name, spec.interfaces);
     scheduleDraft(spec);
   }
@@ -1367,7 +1116,6 @@
     });
 
     $("create-pr").addEventListener("click", createPullRequest);
-    $("learners").addEventListener("input", renderSizes);
 
     $("copy-yaml").addEventListener("click", async () => {
       const ok = await copyText($("yaml-preview").textContent);
