@@ -30,7 +30,10 @@
   // client secret, which a web page cannot keep, so a small helper does that
   // one step (sign-in/README.md). Until both are set, the button opens
   // GitHub's request form instead, for the requester to press Create.
-  const SIGN_IN = window.APP_CREATOR_SIGN_IN || { clientId: "", helper: "" };
+  const SIGN_IN = window.APP_CREATOR_SIGN_IN || {
+    clientId: "Iv23liVpL0Lx5ZG7gWOV", // the sign-in App, reannz-app-creator-sign-in
+    helper: "https://app-creator-sign-in.geoffrey-weal.workers.dev",
+  };
   const CAN_SIGN_IN = Boolean(SIGN_IN.clientId && SIGN_IN.helper);
   // where GitHub sends people back to: the sign-in App's callback URL
   const HOME = `${location.origin}${location.pathname.replace(/index\.html$/, "")}`;
@@ -304,7 +307,7 @@
       if (!res.ok || !data.access_token) throw new Error(data.error_description || data.error || `the sign-in helper answered ${res.status}`);
       const user = await gh("/user", { token: data.access_token });
       const expires = Date.now() + (data.expires_in || 28800) * 1000;
-      store(KEYS.auth, JSON.stringify({ token: data.access_token, login: user.login, expires }), "session");
+      store(KEYS.auth, JSON.stringify({ token: data.access_token, login: user.login, avatar: user.avatar_url, expires }), "session");
     } catch (e) {
       fail(e.message);
       return;
@@ -314,12 +317,24 @@
     if (pending) await fileRequest(pending, { justSignedIn: true });
   }
 
+  // GitHub's mark (Octicons mark-github, MIT), for the sign-in button
+  const GITHUB_MARK =
+    '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"></path></svg>';
+
+  // top right: a sign-in button, or who is signed in
   function renderAccount() {
-    const el = $("account");
-    const auth = CAN_SIGN_IN && account();
-    el.hidden = !auth;
-    el.innerHTML = auth ? `Signed in to GitHub as <strong>@${esc(auth.login)}</strong>. <button type="button" class="link-button" id="sign-out">Sign out</button>` : "";
-    if (auth) $("sign-out").addEventListener("click", signOut);
+    const el = $("header-account");
+    el.hidden = !CAN_SIGN_IN;
+    if (!CAN_SIGN_IN) return;
+    const auth = account();
+    if (auth) {
+      const avatar = auth.avatar ? `<img class="avatar" src="${esc(auth.avatar)}" alt="">` : "";
+      el.innerHTML = `${avatar}<span>@${esc(auth.login)}</span><button type="button" class="link-button" id="sign-out">Sign out</button>`;
+      $("sign-out").addEventListener("click", signOut);
+    } else {
+      el.innerHTML = `<button type="button" class="sign-in-button" id="sign-in">${GITHUB_MARK}Sign in with GitHub</button>`;
+      $("sign-in").addEventListener("click", () => signIn(null));
+    }
   }
 
   function authHeaders(token = getToken()) {

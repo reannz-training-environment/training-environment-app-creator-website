@@ -121,7 +121,30 @@ code {
 
 .site-header h1 { margin: 0; font-size: 22px; line-height: 1.2; }
 
+.header-right { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
 .header-links { display: flex; gap: 18px; flex-wrap: wrap; }
+
+/* signing in with GitHub */
+.header-account { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+.header-account[hidden] { display: none; }
+.header-account .link-button { color: var(--ink-text); opacity: 0.85; }
+.header-account .link-button:hover { opacity: 1; }
+.sign-in-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink-text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.sign-in-button:hover { background: rgba(255, 255, 255, 0.1); }
+.sign-in-button svg { width: 16px; height: 16px; fill: currentColor; }
+.avatar { width: 26px; height: 26px; border-radius: 50%; }
 .header-links a { color: var(--ink-text); text-decoration: none; opacity: 0.85; font-size: 14px; }
 .header-links a:hover { opacity: 1; text-decoration: underline; color: var(--ink-text); }
 
@@ -490,8 +513,6 @@ input[type="radio"] { width: auto; accent-color: var(--accent); }
 .result p { margin: 0 0 6px; }
 .result p:last-child { margin-bottom: 0; }
 .result ol { margin: 6px 0 0; padding-left: 20px; }
-
-.account { margin: 0; }
 
 /* a button that reads as a link, inside text */
 .link-button {
