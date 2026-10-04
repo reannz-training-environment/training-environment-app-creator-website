@@ -35,20 +35,39 @@ account. The Workers free plan is plenty.
    through a private App, and outside collaborators must be able to as well.
    It has no webhook, and may only write issues.
 
-2. **Make the helper.** In Cloudflare: *Workers & Pages*, *Create*, *Create
-   Worker*. Name it, say, `app-creator-sign-in`, and deploy the starter. Then
-   *Edit code*, replace it all with [`worker.js`](worker.js), and deploy.
+2. **Make the helper from this repository.** Cloudflare deploys it straight
+   from GitHub, and again whenever it changes here.
+   [`wrangler.jsonc`](wrangler.jsonc) holds its name and its two public
+   settings: the website's address, and the sign-in App's client ID.
 
-3. **Give it its settings.** The Worker's *Settings*, *Variables and Secrets*:
+   In the [Cloudflare dashboard](https://dash.cloudflare.com):
+   *Workers & Pages*, *Create application*, *Import a repository*. Choose
+   GitHub, then `reannz-training-environment` and
+   `training-environment-app-creator-website`. If the repository isn't
+   listed, let Cloudflare's GitHub App see it.
 
-   | Name | Type | Value |
-   | --- | --- | --- |
-   | `SITE` | Text | `https://reannz-training-environment.github.io` |
-   | `CLIENT_ID` | Text | the client ID from step 1 |
-   | `CLIENT_SECRET` | Secret | the client secret from step 1 (on the clipboard) |
+   On the next page:
 
-   Deploy again, and note the Worker's address, like
+   | Setting | Value |
+   | --- | --- |
+   | Project name | `app-creator-sign-in` (it must match `name` in `wrangler.jsonc`) |
+   | Build command | leave empty |
+   | Deploy command | `npx wrangler deploy` |
+   | Root directory, under *Advanced settings* | `sign-in` |
+
+   Press *Create and deploy*, and wait for the deploy to finish.
+
+3. **Give it the secret.** The Worker's *Settings*, *Variables and Secrets*,
+   *Add*: type *Secret*, name `CLIENT_SECRET`, value the client secret from
+   step 1 (it was put on the clipboard), then *Deploy*. Note the Worker's
+   address, shown under *Domains & Routes*, like
    `https://app-creator-sign-in.<your-subdomain>.workers.dev`.
+
+   Or, without connecting GitHub: *Create application*, *Start with Hello
+   World*, name it `app-creator-sign-in`, deploy, *Edit code*, paste in
+   [`worker.js`](worker.js), and deploy. Then add `SITE` and `CLIENT_ID`
+   (both *Text*, with the values in `wrangler.jsonc`) as well as
+   `CLIENT_SECRET`.
 
 4. **Point the website at it.** In [`assets/app.js`](../assets/app.js), set:
 

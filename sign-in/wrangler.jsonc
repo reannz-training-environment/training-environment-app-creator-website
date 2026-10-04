@@ -1,0 +1,14 @@
+// Cloudflare's settings for the sign-in helper (README.md, beside this file).
+// CLIENT_SECRET is not here: it is a secret, added in Cloudflare.
+{
+  "name": "app-creator-sign-in",
+  "main": "worker.js",
+  "compatibility_date": "2026-09-01",
+  "workers_dev": true,
+  "vars": {
+    // the website, which alone may use the helper
+    "SITE": "https://reannz-training-environment.github.io",
+    // the sign-in App, reannz-app-creator-sign-in
+    "CLIENT_ID": "Iv23liVpL0Lx5ZG7gWOV"
+  }
+}
