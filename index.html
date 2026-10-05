@@ -115,7 +115,7 @@
             <span class="switch-track" aria-hidden="true"></span>
             <span class="feature-title">Emulated GPUs</span>
           </label>
-          <p class="feature-text">NVIDIA cards that <code>nvidia-smi</code>, <code>nvtop</code>, Slurm and PyTorch all see, with real memory limits. There is no physical GPU: everything runs on the CPU, so timings say nothing about GPU performance.</p>
+          <p class="feature-text">NVIDIA cards that <code>nvidia-smi</code>, <code>nvtop</code>, Slurm and PyTorch all see, with real memory limits. There is no physical GPU: everything runs on the CPU, so timings say nothing about GPU performance. Code runs on the cards through PyTorch and Numba below; other programs' GPU (CUDA) builds cannot, and the page points them out in the Software section.</p>
           <div class="feature-options" id="gpu-options" hidden>
             <fieldset class="mode-set">
               <legend>GPUs in each session</legend>

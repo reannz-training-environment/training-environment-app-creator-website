@@ -505,6 +505,128 @@
     }
   }
 
+  // ------------------------------------------------------- GPU and CPU builds
+  //
+  // Some programs have builds for real (CUDA) GPUs and for CPUs. The emulated
+  // GPUs have no CUDA: code runs on them only through the emulator's PyTorch
+  // and Numba's CUDA simulator. A CUDA build cannot use them, and a CPU build
+  // runs without them, so the page says which was asked for. The app creator
+  // checks the same (spec.gpu_build).
+
+  const BOX = { "sw-pip": "pip", "sw-conda": "conda", "sw-cran": "cran", "sw-apt": "apt" };
+  const BOX_LABEL = { pip: "Python packages", conda: "Conda packages", cran: "R packages: CRAN", apt: "System packages" };
+  const TORCH = ["torch", "torchvision", "torchaudio"];
+  const CUDA_PIP = {
+    "tensorflow-gpu": "tensorflow",
+    "onnxruntime-gpu": "onnxruntime",
+    "paddlepaddle-gpu": "paddlepaddle",
+    pycuda: "",
+    "cuda-python": "",
+    "numba-cuda": "",
+    "dask-cuda": "",
+    triton: "",
+    bitsandbytes: "",
+    "flash-attn": "",
+    xformers: "",
+    vllm: "",
+  };
+  const CPU_PIP = ["tensorflow-cpu", "onnxruntime", "faiss-cpu", "paddlepaddle", "mxnet", "jaxlib"];
+  const CUDA_CONDA = ["pytorch-gpu", "tensorflow-gpu", "cudatoolkit", "cudnn", "nccl", "cupy", "cupy-core", "faiss-gpu", "cudf", "cuml", "cugraph", "rapids", "pycuda", "cuda-python"];
+  const CPU_CONDA = ["pytorch", "pytorch-cpu", "tensorflow", "tensorflow-cpu", "jax", "jaxlib", "faiss-cpu", "cpuonly"];
+
+  const normal = (name) => name.toLowerCase().replace(/[-_.]+/g, "-");
+
+  function pipParts(line) {
+    const m = line.match(/^\s*([A-Za-z0-9][A-Za-z0-9._-]*)\s*(?:\[([^\]]*)\])?(.*)$/);
+    if (!m) return null;
+    const extras = (m[2] || "").split(",").map((e) => normal(e.trim())).filter(Boolean);
+    return { name: normal(m[1]), extras, rest: m[3].toLowerCase() };
+  }
+
+  // {kind: "cuda" or "cpu", instead: its CPU counterpart}, or null
+  function gpuBuild(box, line) {
+    const build = (kind, instead = "") => ({ kind, instead });
+    if (box === "pip") {
+      const parts = pipParts(line);
+      if (!parts) return null;
+      const { name, extras, rest } = parts;
+      if (TORCH.includes(name)) return build(rest.includes("+cpu") ? "cpu" : "cuda");
+      if (name === "tensorflow") return extras.includes("and-cuda") ? build("cuda", "tensorflow") : build("cpu");
+      if (name === "jax") return extras.some((e) => e.startsWith("cuda")) ? build("cuda", "jax") : build("cpu");
+      if (name in CUDA_PIP) return build("cuda", CUDA_PIP[name]);
+      if (name.startsWith("cupy")) return build("cuda", "numpy");
+      if (name.startsWith("faiss-gpu")) return build("cuda", "faiss-cpu");
+      if (/^mxnet-cu\d+[a-z0-9]*$/.test(name)) return build("cuda", "mxnet");
+      if (name.startsWith("tensorrt") || /^[a-z0-9-]+-cu1\d$/.test(name)) return build("cuda");
+      // NVIDIA's CUDA libraries; nvidia-ml-py is NVML, which the emulator has
+      if (name.startsWith("nvidia-") && !name.startsWith("nvidia-ml-py")) return build("cuda");
+      if (CPU_PIP.includes(name)) return name === "jaxlib" && rest.includes("cuda") ? build("cuda", "jax") : build("cpu");
+      return null;
+    }
+    if (box === "conda") {
+      const name = condaName(line);
+      const rest = line.split("::").pop().slice(name.length).toLowerCase();
+      if (CUDA_CONDA.includes(name) || name.startsWith("cuda-") || rest.includes("cuda")) return build("cuda");
+      if (CPU_CONDA.includes(name) || rest.includes("cpu")) return build("cpu");
+      return null;
+    }
+    if (box === "cran") return line.trim() === "torch" ? build("cpu") : null;
+    if (box === "apt") {
+      const name = line.split("=")[0].trim();
+      return /^(nvidia-|libnvidia-|libcuda|libcudart|libcublas|libcudnn|libnccl)/.test(name) ? build("cuda") : null;
+    }
+    return null;
+  }
+
+  // what the requester should know about the GPU and CPU builds asked for
+  function gpuNotes(spec) {
+    const gpu = (spec.features || {}).gpu;
+    const on = Boolean(gpu);
+    const sw = spec.software || {};
+    const notes = [];
+    const lists = {
+      pip: sw.pip || [],
+      conda: (sw.conda && sw.conda.packages) || [],
+      cran: (sw.r && sw.r.cran) || [],
+      apt: sw.apt || [],
+    };
+    for (const [box, lines] of Object.entries(lists)) {
+      for (const line of lines) {
+        const build = gpuBuild(box, line);
+        if (!build) continue;
+        const name = line.trim();
+        const where = `${BOX_LABEL[box]}: \`${name}\``;
+        const torch = box === "pip" && TORCH.includes(pipParts(line).name);
+        if (torch && on && gpu.pytorch) {
+          notes.push(`${where} comes with the emulated GPUs already (PyTorch, under Emulated GPUs), in the CPU build their torch.cuda works with. Listed here too, it can be replaced by PyPI's build for CUDA GPUs, which cannot use them: take it out.`);
+        } else if (torch && on) {
+          notes.push(`${where} on its own is not the PyTorch the emulated GPUs work with, so torch.cuda will not see them${build.kind === "cpu" ? "" : ", and PyPI's build for CUDA GPUs adds gigabytes to the image"}. Tick PyTorch under Emulated GPUs for the build that does.`);
+        } else if (torch) {
+          if (build.kind === "cuda") notes.push(`${where} from PyPI is the build for CUDA GPUs. The app has no GPUs, so it runs on the CPU, with about 3 GB of CUDA libraries it cannot use.`);
+        } else if (build.kind === "cuda" && box === "apt") {
+          notes.push(`${where} is NVIDIA's driver or CUDA software. ${on ? "The emulated GPUs have no CUDA, so CUDA programs cannot run on them, and NVIDIA's own driver libraries would get in the emulator's way." : "The app has no GPUs for it."}`);
+        } else if (build.kind === "cuda") {
+          const other = build.instead ? ` \`${build.instead}\` is its CPU counterpart.` : "";
+          notes.push(
+            on
+              ? `${where} is built for real (CUDA) GPUs. The emulated GPUs have no CUDA, so it cannot run on them: it will fail, or run on the CPU, and it makes the image larger. GPU code runs on them through PyTorch and Numba's CUDA simulator, under Emulated GPUs.${other}`
+              : `${where} is built for CUDA GPUs, and the app has no GPUs: it will fail, or run on the CPU, and it makes the image larger.${other}`,
+          );
+        } else if (on) {
+          const conda = box === "conda" && name.startsWith("pytorch") ? " It goes in the conda environment for command-line tools, where JupyterLab's Python cannot import it either: tick PyTorch under Emulated GPUs." : "";
+          notes.push(`${where} is a CPU build: it runs on the CPU, and the emulated GPUs will not see it.${conda}`);
+        }
+      }
+    }
+    if (on && !gpu.numba && lists.pip.some((line) => (pipParts(line) || {}).name === "numba")) {
+      notes.push("Python packages: `numba` has no CUDA here, so @cuda.jit kernels cannot run on the emulated GPUs. Tick Numba's CUDA simulator under Emulated GPUs.");
+    }
+    if (on && !gpu.pytorch && !gpu.numba) {
+      notes.push("With PyTorch and Numba's CUDA simulator both off, no code runs on the emulated GPUs; only nvidia-smi, nvtop and Slurm see them.");
+    }
+    return notes;
+  }
+
   // ------------------------------------------------------------------- spec
 
   function selectedInterfaces() {
@@ -729,6 +851,7 @@
         err(`With R ${rv}, the RStudio image is Ubuntu 20.04, whose Python 3.8 is too old for the Slurm and GPU emulators: choose Python 3.10 or newer.`, "python-version");
       }
     }
+    warnings.push(...gpuNotes(spec));
     if (adv.dockerfile) warnings.push("Reviewers will read the extra Dockerfile instructions before merging.");
     if (adv.startup) warnings.push("Reviewers will read the session start commands before merging.");
 
@@ -1107,6 +1230,7 @@
             `<span class="suggest-name">${esc(row.name)}</span>` +
             (row.version ? `<span class="suggest-version">${esc(row.version)}</span>` : "") +
             `<span class="suggest-summary">${esc(row.summary || "")}</span>` +
+            buildTag(s.area.id, row.name) +
             (others.has(row.key) ? '<span class="suggest-added">added</span>' : row.popularity ? `<span class="suggest-pop">${compactCount(row.popularity)}</span>` : "") +
             "</li>",
         )
@@ -1115,6 +1239,14 @@
     box.hidden = false;
     s.area.setAttribute("aria-expanded", "true");
     if (s.rows) s.area.setAttribute("aria-activedescendant", `suggest-${s.active}`);
+  }
+
+  // "CUDA build" on a suggestion that is one, and "CPU build" when the app has
+  // emulated GPUs that a CPU build would not use
+  function buildTag(target, name) {
+    const build = BOX[target] && gpuBuild(BOX[target], name);
+    if (!build || (build.kind === "cpu" && !checked("gpu-enabled"))) return "";
+    return `<span class="suggest-build ${build.kind}">${build.kind === "cuda" ? "CUDA build" : "CPU build"}</span>`;
   }
 
   function hideSuggestions() {
@@ -1229,9 +1361,11 @@
     }
 
     const shownErrors = errors.filter((e) => !blank(e));
+    // `name` in a message is a package or setting: shown as code
+    const html = (text) => esc(text).replace(/`([^`]+)`/g, "<code>$1</code>");
     $("messages").innerHTML = [
-      ...shownErrors.map((e) => `<div class="message error">${esc(e.message)}</div>`),
-      ...warnings.map((w) => `<div class="message warning">${esc(w)}</div>`),
+      ...shownErrors.map((e) => `<div class="message error">${html(e.message)}</div>`),
+      ...warnings.map((w) => `<div class="message warning">${html(w)}</div>`),
     ].join("");
 
     const button = $("create-pr");

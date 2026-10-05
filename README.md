@@ -63,6 +63,20 @@ used. The **Catalogue** workflow rebuilds them every Monday and commits the
 ones that changed; run it by hand (*Actions*, *Catalogue*, *Run workflow*) to
 update them sooner.
 
+## GPU and CPU builds
+
+Some programs come as a build for real (CUDA) GPUs and a build for CPUs:
+TensorFlow, JAX, CuPy, Faiss, RAPIDS and PyTorch from PyPI among them. The
+training environment's GPUs are emulated and have no CUDA. Code runs on them
+only through the emulator's PyTorch and Numba's CUDA simulator, which the
+*Emulated GPUs* options install. So the page warns when a package box asks
+for a CUDA build: it cannot use the emulated GPUs, or any GPU if the app has
+none, and it makes the image larger. With emulated GPUs it also says which
+packages are CPU builds, which run without them, and suggestions are tagged
+*CUDA build* or *CPU build*. These are warnings: the request can still be
+made. The app creator gives the same warnings on the pull request
+(`gpu_build` in its `spec.py`).
+
 ## Python and R versions
 
 The Python and R menus under *Advanced* offer the versions Mahuika has, as
