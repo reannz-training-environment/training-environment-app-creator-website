@@ -1,6 +1,6 @@
-# Rebuilds the package browser's lists, and the Python and R versions Mahuika
-# has, every week (tools/build_catalogue.py), and commits the ones that
-# changed. GitHub Pages then publishes them.
+# Rebuilds the lists the website's package boxes suggest from, and the Python
+# and R versions Mahuika has, every week (tools/build_catalogue.py), and
+# commits the ones that changed. GitHub Pages then publishes them.
 #
 # A source that cannot be reached keeps its last list, and the run fails, so
 # that it shows; the other lists are still updated.

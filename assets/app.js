@@ -89,34 +89,86 @@
 
   const ARCHIVES = [".tar.gz", ".tgz", ".tar.bz2", ".tbz2", ".tar.xz", ".txz", ".tar", ".zip"];
 
-  // The package browser's lists, from assets/catalogue/<id>.json, which the
-  // Catalogue workflow rebuilds every week (tools/build_catalogue.py). Each
-  // fills one box of the Software section. `featured` packages come first in
-  // lists that have no download counts to sort by.
+  // The package lists, from assets/catalogue/<id>.json, which the Catalogue
+  // workflow rebuilds every week (tools/build_catalogue.py). Each belongs to a
+  // box of the Software section. Popular packages shows each list's `popular`
+  // ones, to add with a click; the box suggests from all of them as a name is
+  // typed.
   const LISTS = [
     {
       id: "bioconda",
-      search: "bioinformatics tools",
       label: "Bioinformatics",
       target: "sw-conda",
-      what: "bioinformatics tools from bioconda",
-      featured: ["samtools", "bcftools", "bwa", "bowtie2", "minimap2", "fastqc", "multiqc", "fastp", "seqkit", "blast", "hisat2", "salmon", "star", "subread", "spades", "kraken2"],
+      every: "every bioinformatics tool on bioconda",
+      popular: [
+        "samtools", "bcftools", "htslib", "bedtools", "bwa", "bwa-mem2", "bowtie2", "minimap2", "hisat2", "star", "salmon", "kallisto",
+        "subread", "fastqc", "multiqc", "fastp", "cutadapt", "trimmomatic", "seqkit", "blast", "diamond", "spades", "megahit", "flye",
+        "kraken2", "bracken", "prokka", "quast", "busco", "picard", "gatk4", "freebayes", "mafft", "iqtree", "nanoplot", "fastplong",
+      ],
     },
-    { id: "workflows", search: "workflow managers", label: "Workflows", target: "sw-conda", what: "workflow managers, as conda packages" },
-    { id: "pypi", search: "Python packages", label: "Python", target: "sw-pip", what: "of the most downloaded Python packages" },
-    { id: "cran", search: "R packages", label: "R", target: "sw-cran", what: "R packages on CRAN", needs: "rstudio" },
-    { id: "bioconductor", search: "Bioconductor packages", label: "Bioconductor", target: "sw-bioc", what: "Bioconductor packages", needs: "rstudio" },
+    {
+      id: "workflows",
+      label: "Workflows",
+      target: "sw-conda",
+      every: "workflow managers on conda-forge and bioconda",
+      popular: ["nextflow", "nf-core", "snakemake", "cwltool", "toil", "cromwell", "miniwdl", "cylc-flow", "parsl", "dask", "luigi", "prefect", "papermill", "make", "doit", "invoke"],
+    },
+    {
+      id: "pypi",
+      label: "Python",
+      target: "sw-pip",
+      every: "the 15,000 most downloaded packages on PyPI",
+      popular: [
+        "numpy", "pandas", "matplotlib", "scipy", "seaborn", "scikit-learn", "plotly", "ipywidgets", "statsmodels", "xarray", "netcdf4", "h5py", "polars",
+        "pyarrow", "biopython", "pysam", "scanpy", "torch", "tensorflow", "dask", "numba", "mpi4py", "jupyterlab-git", "requests", "tqdm", "pyyaml",
+      ],
+    },
+    {
+      id: "cran",
+      label: "R",
+      target: "sw-cran",
+      every: "every package on CRAN",
+      needs: "rstudio",
+      popular: [
+        "tidyverse", "ggplot2", "dplyr", "tidyr", "readr", "purrr", "stringr", "lubridate", "data.table", "rmarkdown", "knitr", "quarto", "shiny",
+        "here", "janitor", "palmerpenguins", "vegan", "lme4", "caret", "tidymodels", "sf", "terra", "leaflet", "plotly", "devtools", "renv",
+      ],
+    },
+    {
+      id: "bioconductor",
+      label: "Bioconductor",
+      target: "sw-bioc",
+      every: "every Bioconductor package",
+      needs: "rstudio",
+      popular: [
+        "DESeq2", "edgeR", "limma", "GenomicRanges", "Biostrings", "SummarizedExperiment", "SingleCellExperiment", "scater", "scran", "DropletUtils",
+        "clusterProfiler", "org.Hs.eg.db", "biomaRt", "rtracklayer", "GenomicFeatures", "ComplexHeatmap", "tximport", "Rsamtools", "BiocParallel", "phyloseq",
+      ],
+    },
     {
       id: "apt",
-      search: "Ubuntu packages",
       label: "Command line",
       target: "sw-apt",
-      what: "Ubuntu 22.04 packages",
-      featured: ["parallel", "pigz", "tmux", "htop", "tree", "bc", "ncdu", "jq", "screen", "zsh", "emacs-nox", "build-essential", "gfortran", "cmake", "openmpi-bin", "libopenmpi-dev", "hdf5-tools", "netcdf-bin"],
+      every: "every Ubuntu 22.04 package",
+      popular: [
+        "parallel", "pigz", "tmux", "screen", "htop", "tree", "jq", "bc", "ncdu", "zsh", "emacs-nox", "build-essential", "gfortran", "cmake",
+        "openmpi-bin", "libopenmpi-dev", "hdf5-tools", "netcdf-bin", "sqlite3", "pandoc", "graphviz", "imagemagick", "ffmpeg", "valgrind", "gdb",
+      ],
     },
-    { id: "vscode", search: "VS Code extensions", label: "VS Code", target: "sw-vscode", what: "VS Code extensions on Open VSX", needs: "codeserver" },
+    {
+      id: "vscode",
+      label: "VS Code",
+      target: "sw-vscode",
+      every: "every extension on Open VSX",
+      needs: "codeserver",
+      popular: [
+        "ms-python.python", "ms-toolsai.jupyter", "REditorSupport.r", "quarto.quarto", "redhat.vscode-yaml", "nextflow.nextflow", "snakemake.snakemake-lang",
+        "charliermarsh.ruff", "mechatroner.rainbow-csv", "streetsidesoftware.code-spell-checker", "eamodio.gitlens", "yzhang.markdown-all-in-one",
+        "James-Yu.latex-workshop", "llvm-vs-code-extensions.vscode-clangd", "fortran-lang.linter-gfortran", "julialang.language-julia", "rust-lang.rust-analyzer", "golang.Go",
+      ],
+    },
   ];
-  const ROW = 34; // the height of a package browser row, in pixels
+  const SUGGESTIONS = 8; // the most suggestions a box shows
 
   // The Python and R versions Mahuika has, as NeSI's documentation lists
   // them. The Catalogue workflow keeps assets/catalogue/versions.json up to
@@ -142,11 +194,9 @@
   let draftTimer = null;
   let busy = false;
   const catalogues = new Map(); // list id -> the loaded list, or a promise of it
-  let browsing = LISTS[0]; // the list the package browser shows
-  let shown = []; // its rows that match the search
-  let filtered = ""; // the list and search that `shown` is for
-  let drawn = { rows: null, first: 0, last: 0 }; // the rows on screen
-  let searchTimer = null;
+  let popularTab = LISTS[0]; // the list Popular packages shows
+  let suggesting = null; // the suggestions on show: {area, start, end, prefix, name, rows, active}
+  let suggestTimer = null;
 
   // ---------------------------------------------------------------- helpers
 
@@ -852,11 +902,11 @@
     }
   }
 
-  // -------------------------------------------------------- package browser
+  // ------------------------------------------ popular packages, suggestions
   //
-  // One list at a time, with a search box. Lists run to tens of thousands of
-  // packages, so only the rows in view are drawn. A row adds its package to
-  // its list's box in the Software section, or takes it out again.
+  // Popular packages shows a few dozen of each list's packages, to add with a
+  // click. For anything else, a box suggests packages from all of its lists
+  // as their names are typed, best match first.
 
   // the name a line of a box is about: "numpy>=1.2" and "bioconda::samtools=1.2"
   // name numpy and samtools; pip treats -, _ and . alike
@@ -865,23 +915,28 @@
     return target === "sw-pip" ? name.replace(/[-_.]+/g, "-") : name;
   }
 
-  function boxLines(target) {
-    return items($(target).value, target !== "sw-conda" && target !== "sw-pip");
+  // apt, R and VS Code boxes also take packages separated by spaces or commas
+  function wordBox(target) {
+    return target !== "sw-conda" && target !== "sw-pip";
   }
 
-  function chosenIn(target) {
-    return new Set(boxLines(target).map((line) => packageKey(target, line)));
+  function chosenIn(target, text = $(target).value) {
+    return new Set(items(text, wordBox(target)).map((line) => packageKey(target, line)));
+  }
+
+  function listsFor(target) {
+    return LISTS.filter((list) => list.target === target);
   }
 
   function loadList(list) {
     if (!catalogues.has(list.id)) {
+      const popular = new Map(list.popular.map((name, i) => [name.toLowerCase(), i]));
       const loading = fetch(`assets/catalogue/${list.id}.json`)
         .then((res) => {
           if (!res.ok) throw new Error(`it answered ${res.status}`);
           return res.json();
         })
         .then((data) => {
-          const featured = list.featured || [];
           const rows = data.items.map(([name, version, summary, popularity]) => ({
             name,
             version,
@@ -890,11 +945,12 @@
             key: packageKey(list.target, name),
             lower: name.toLowerCase(),
             text: (summary || "").toLowerCase(),
+            // popular packages come first among names that match
+            rank: popular.has(name.toLowerCase()) ? popular.get(name.toLowerCase()) : Infinity,
           }));
-          const first = featured.map((name) => rows.find((r) => r.name === name)).filter(Boolean);
-          const loaded = { ...data, rows: [...first, ...rows.filter((r) => !first.includes(r))] };
-          catalogues.set(list.id, loaded);
-          return loaded;
+          const ready = { ...data, rows };
+          catalogues.set(list.id, ready);
+          return ready;
         })
         .catch((e) => {
           catalogues.delete(list.id);
@@ -905,74 +961,122 @@
     return Promise.resolve(catalogues.get(list.id));
   }
 
-  function renderBrowserTabs() {
-    $("browse-tabs").innerHTML = LISTS.map(
+  // a list, once it has loaded
+  function listData(list) {
+    const data = catalogues.get(list.id);
+    return data && data.rows ? data : null;
+  }
+
+  function togglePackage(target, name) {
+    const area = $(target);
+    const key = packageKey(target, name);
+    const lines = area.value.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    const idx = lines.findIndex((l) => packageKey(target, l) === key);
+    if (idx >= 0) lines.splice(idx, 1);
+    else lines.push(name);
+    area.value = lines.join("\n");
+    render();
+  }
+
+  function renderPopularTabs() {
+    $("popular-tabs").innerHTML = LISTS.map(
       (list) =>
-        `<button type="button" role="tab" class="browse-tab" id="browse-tab-${list.id}" data-list="${list.id}" aria-selected="${list === browsing}" aria-controls="browse-panel" tabindex="${list === browsing ? 0 : -1}">${esc(list.label)}</button>`,
+        `<button type="button" role="tab" class="popular-tab" id="popular-tab-${list.id}" data-list="${list.id}" aria-selected="${list === popularTab}" aria-controls="popular-panel" tabindex="${list === popularTab ? 0 : -1}">${esc(list.label)}</button>`,
     ).join("");
+    $("popular-panel").setAttribute("aria-labelledby", `popular-tab-${popularTab.id}`);
   }
 
-  async function openList(list) {
-    browsing = list;
-    renderBrowserTabs();
-    $("browse-panel").setAttribute("aria-labelledby", `browse-tab-${list.id}`);
-    $("browse-search").placeholder = `Search ${list.search}`;
-    $("browse-note").textContent = "";
-    if (!(catalogues.get(list.id) && catalogues.get(list.id).rows)) {
-      shown = [];
-      drawRows();
-      $("browse-count").textContent = "Loading the list...";
-    }
-    try {
-      const data = await loadList(list);
-      if (browsing !== list) return;
-      const when = data.updated ? ` Updated ${data.updated} from ${new URL(data.source).hostname}.` : "";
-      $("browse-note").textContent =
-        `${data.title}${data.popularity ? `, most ${data.popularity.startsWith("installs") ? "installed" : "downloaded"} first` : ""}.${when} ` +
-        `Click a package to add it to ${$(list.target).labels[0].textContent.trim()}, and again to take it out; anything else can be typed there.`;
-      filterList();
-    } catch (e) {
-      if (browsing !== list) return;
-      $("browse-count").textContent = `Could not load the list (${e.message}). Packages can still be typed in the boxes below.`;
-    }
+  function renderChips() {
+    const list = popularTab;
+    const chosen = chosenIn(list.target);
+    $("popular-chips").innerHTML = list.popular
+      .map((name) => `<button type="button" class="preset" data-name="${esc(name)}" aria-pressed="${chosen.has(packageKey(list.target, name))}">${esc(name)}</button>`)
+      .join("");
+    const box = $(list.target).labels[0].textContent.trim();
+    const needs = list.needs && !selectedInterfaces().includes(list.needs);
+    $("popular-note").textContent =
+      `Click to add a package to ${box}, and again to take it out. For any other, start typing its name in ${box}: it suggests from ${list.every}.` +
+      (needs ? ` These are for the ${list.needs === "rstudio" ? "RStudio" : "VS Code"} app, which is not chosen.` : "");
   }
 
-  // the open list's rows that match the search: names that start with it,
-  // then names that have it, then descriptions that have it
-  function filterList() {
-    const data = catalogues.get(browsing.id);
-    if (!data || !data.rows) return;
-    const query = $("browse-search").value.trim().toLowerCase();
-    if (!query) {
-      shown = data.rows;
-    } else {
-      const starts = [];
-      const has = [];
-      const about = [];
+  function showPopular(list) {
+    popularTab = list;
+    renderPopularTabs();
+    renderChips();
+  }
+
+  // the package name being typed in a box, at the caret: its line, or its
+  // word in a box that also splits on spaces and commas
+  function typedName(area) {
+    const value = area.value;
+    const caret = area.selectionStart;
+    if (caret !== area.selectionEnd) return null;
+    let start = value.lastIndexOf("\n", caret - 1) + 1;
+    let end = value.indexOf("\n", caret);
+    if (end < 0) end = value.length;
+    if (wordBox(area.id)) {
+      start = caret - value.slice(start, caret).match(/[^\s,]*$/)[0].length;
+      end = caret + value.slice(caret, end).match(/^[^\s,]*/)[0].length;
+    }
+    const text = value.slice(start, end);
+    const prefix = (text.match(/^[A-Za-z0-9_.-]+::/) || [""])[0]; // a conda channel
+    const name = text.slice(prefix.length).trim();
+    // nothing to suggest once a version, an option or a URL is being typed
+    if (name.length < 2 || /[\s=<>!~;@[,:]/.test(name) || /^(-|#|git\+)/.test(name)) return null;
+    return { start, end, prefix, name };
+  }
+
+  // a box's best matches: the name itself, then names that start with it
+  // (popular ones first, then the most downloaded, then the shortest), then
+  // names that have it, then descriptions that have it
+  function suggestionsFor(target, name) {
+    const q = name.toLowerCase();
+    const seen = new Set();
+    const groups = [[], [], [], []];
+    for (const list of listsFor(target)) {
+      const data = listData(list);
+      if (!data) continue;
       for (const row of data.rows) {
-        if (row.lower.startsWith(query)) starts.push(row);
-        else if (row.lower.includes(query)) has.push(row);
-        else if (row.text.includes(query)) about.push(row);
+        if (seen.has(row.key)) continue;
+        const group =
+          row.lower === q ? 0 : row.lower.startsWith(q) ? 1 : row.lower.includes(q) ? 2 : q.length > 2 && row.text.includes(q) ? 3 : -1;
+        if (group < 0) continue;
+        seen.add(row.key);
+        groups[group].push(row);
       }
-      shown = [...starts, ...has, ...about];
     }
-    countRows();
-    // back to the top for a new list or search, not for the same one again
-    if (filtered !== `${browsing.id}\n${query}`) $("browse-list").scrollTop = 0;
-    filtered = `${browsing.id}\n${query}`;
-    drawRows();
+    const best = (a, b) => a.rank - b.rank || b.popularity - a.popularity || a.name.length - b.name.length || a.lower.localeCompare(b.lower);
+    groups[1].sort(best);
+    groups[2].sort(best);
+    groups[3].sort((a, b) => a.rank - b.rank || b.popularity - a.popularity);
+    return [].concat(...groups).slice(0, SUGGESTIONS);
   }
 
-  // "12 of 7,616 bioinformatics tools from bioconda", and whether the list's
-  // interface is chosen
-  function countRows() {
-    const data = catalogues.get(browsing.id);
-    if (!data || !data.rows) return;
-    const total = data.rows.length.toLocaleString();
-    const needs = browsing.needs && !selectedInterfaces().includes(browsing.needs);
-    $("browse-count").textContent =
-      (shown.length === data.rows.length ? `${total} ${browsing.what}` : `${shown.length.toLocaleString()} of ${total} ${browsing.what}`) +
-      (needs ? ` (for the ${browsing.needs === "rstudio" ? "RStudio" : "VS Code"} app, which is not chosen)` : "");
+  function showSuggestions(area) {
+    const typed = typedName(area);
+    const lists = listsFor(area.id);
+    if (!typed || !lists.length) {
+      hideSuggestions();
+      return;
+    }
+    const waiting = lists.filter((list) => !listData(list));
+    if (waiting.length) {
+      // the box's lists load the first time it is used
+      suggesting = { area, ...typed, rows: null, active: 0 };
+      renderSuggestions();
+      Promise.all(waiting.map(loadList))
+        .then(() => document.activeElement === area && showSuggestions(area))
+        .catch(() => hideSuggestions());
+      return;
+    }
+    const rows = suggestionsFor(area.id, typed.name);
+    // nothing to add when what is typed is the only match
+    if (!rows.length || (rows.length === 1 && rows[0].lower === typed.name.toLowerCase())) {
+      hideSuggestions();
+      return;
+    }
+    suggesting = { area, ...typed, rows, active: 0 };
+    renderSuggestions();
   }
 
   function compactCount(n) {
@@ -983,65 +1087,77 @@
     return String(n);
   }
 
-  // draw the rows in view, and a few either side. When those are the rows
-  // already drawn, only their ticks are brought up to date: replacing a row
-  // between a mouse press and its release would lose the click.
-  function drawRows() {
-    const list = $("browse-list");
-    $("browse-spacer").style.height = `${shown.length * ROW}px`;
-    const first = Math.max(0, Math.floor(list.scrollTop / ROW) - 6);
-    const last = Math.min(shown.length, Math.ceil((list.scrollTop + (list.clientHeight || 300)) / ROW) + 6);
-    const chosen = chosenIn(browsing.target);
-    if (drawn.rows === shown && drawn.first === first && drawn.last === last) {
-      for (const el of $("browse-rows").children) {
-        el.setAttribute("aria-pressed", String(chosen.has(shown[Number(el.dataset.i)].key)));
-      }
-      return;
+  function renderSuggestions() {
+    const s = suggesting;
+    const box = $("suggest");
+    const field = s.area.closest(".field");
+    if (box.parentElement !== field) field.appendChild(box);
+    box.style.top = `${s.area.offsetTop + s.area.offsetHeight + 4}px`;
+    box.style.left = `${s.area.offsetLeft}px`;
+    box.style.width = `${s.area.offsetWidth}px`;
+    if (!s.rows) {
+      box.innerHTML = '<li class="suggest-note">Loading suggestions...</li>';
+    } else {
+      // what else is in the box, without the name being typed
+      const others = chosenIn(s.area.id, s.area.value.slice(0, s.start) + s.area.value.slice(s.end));
+      box.innerHTML = s.rows
+        .map(
+          (row, i) =>
+            `<li role="option" id="suggest-${i}" class="suggest-row" data-i="${i}" aria-selected="${i === s.active}">` +
+            `<span class="suggest-name">${esc(row.name)}</span>` +
+            (row.version ? `<span class="suggest-version">${esc(row.version)}</span>` : "") +
+            `<span class="suggest-summary">${esc(row.summary || "")}</span>` +
+            (others.has(row.key) ? '<span class="suggest-added">added</span>' : row.popularity ? `<span class="suggest-pop">${compactCount(row.popularity)}</span>` : "") +
+            "</li>",
+        )
+        .join("");
     }
-    drawn = { rows: shown, first, last };
-    const data = catalogues.get(browsing.id);
-    const counted = data && data.popularity ? data.popularity : "";
-    let html = "";
-    for (let i = first; i < last; i++) {
-      const row = shown[i];
-      const on = chosen.has(row.key);
-      html +=
-        `<button type="button" class="browse-row" data-i="${i}" aria-pressed="${on}" style="top:${i * ROW}px"${row.summary ? ` title="${esc(row.summary)}"` : ""}>` +
-        `<span class="browse-name">${esc(row.name)}</span>` +
-        (row.version ? `<span class="browse-version">${esc(row.version)}</span>` : "") +
-        `<span class="browse-summary">${esc(row.summary || "")}</span>` +
-        (row.popularity ? `<span class="browse-pop" title="${esc(`${row.popularity.toLocaleString()} ${counted}`)}">${compactCount(row.popularity)}</span>` : "") +
-        "</button>";
-    }
-    // drawing replaces the rows, so a row that had the focus gets it back
-    const focused = document.activeElement && document.activeElement.closest && document.activeElement.closest(".browse-row");
-    $("browse-rows").innerHTML = html;
-    if (focused) {
-      const again = $("browse-rows").querySelector(`[data-i="${focused.dataset.i}"]`);
-      if (again) again.focus({ preventScroll: true });
-    }
+    box.hidden = false;
+    s.area.setAttribute("aria-expanded", "true");
+    if (s.rows) s.area.setAttribute("aria-activedescendant", `suggest-${s.active}`);
   }
 
-  // up and down move through the list, scrolling it as they go
-  function stepRow(from, step) {
-    const to = Math.max(0, Math.min(shown.length - 1, from + step));
-    const list = $("browse-list");
-    if (to * ROW < list.scrollTop) list.scrollTop = to * ROW;
-    else if ((to + 1) * ROW > list.scrollTop + list.clientHeight) list.scrollTop = (to + 1) * ROW - list.clientHeight;
-    drawRows();
-    const row = $("browse-rows").querySelector(`[data-i="${to}"]`);
-    if (row) row.focus({ preventScroll: true });
+  function hideSuggestions() {
+    if (suggesting) {
+      suggesting.area.setAttribute("aria-expanded", "false");
+      suggesting.area.removeAttribute("aria-activedescendant");
+    }
+    suggesting = null;
+    $("suggest").hidden = true;
   }
 
-  function togglePackage(list, name) {
-    const area = $(list.target);
-    const key = packageKey(list.target, name);
-    const lines = area.value.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-    const idx = lines.findIndex((l) => packageKey(list.target, l) === key);
-    if (idx >= 0) lines.splice(idx, 1);
-    else lines.push(name);
-    area.value = lines.join("\n");
+  function acceptSuggestion(i) {
+    const s = suggesting;
+    const row = s && s.rows && s.rows[i];
+    if (!row) return;
+    const area = s.area;
+    const text = s.prefix + row.name;
+    area.value = area.value.slice(0, s.start) + text + area.value.slice(s.end);
+    area.setSelectionRange(s.start + text.length, s.start + text.length);
+    hideSuggestions();
     render();
+  }
+
+  // up and down choose a suggestion; Enter or Tab takes it, Escape closes them
+  function suggestionKeys(e) {
+    const s = suggesting;
+    if (!s || s.area !== e.target || !s.rows) return;
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      s.active = (s.active + (e.key === "ArrowDown" ? 1 : -1) + s.rows.length) % s.rows.length;
+      renderSuggestions();
+      e.preventDefault();
+    } else if (e.key === "Enter" || e.key === "Tab") {
+      // taking what is already typed is just moving on
+      if (s.rows[s.active].lower === s.name.toLowerCase()) {
+        hideSuggestions();
+        return;
+      }
+      acceptSuggestion(s.active);
+      e.preventDefault();
+    } else if (e.key === "Escape") {
+      hideSuggestions();
+      e.preventDefault();
+    }
   }
 
   // ------------------------------------------------------------- rendering
@@ -1136,10 +1252,7 @@
 
     renderVersionNotes(spec);
     $("yaml-preview").textContent = toYaml(spec);
-    if ($("browse").open) {
-      countRows();
-      drawRows();
-    }
+    if ($("popular").open) renderChips();
 
     // folders VS Code could open
     const dests = unique(
@@ -1484,8 +1597,14 @@
       (c) => `<label class="chip"><input type="checkbox" id="card-${c.id}" value="${c.id}" checked><span>${esc(c.label)} <small>${esc(c.memory)}</small></span></label>`,
     ).join("");
     $("gpu-vram").innerHTML = VRAM.map(([v, label]) => `<option value="${v}"${v === "200MiB" ? " selected" : ""}>${esc(label)}</option>`).join("");
-    renderBrowserTabs();
+    renderPopularTabs();
     renderVersionMenus();
+    for (const list of LISTS) {
+      const area = $(list.target);
+      area.setAttribute("aria-autocomplete", "list");
+      area.setAttribute("aria-controls", "suggest");
+      area.setAttribute("aria-expanded", "false");
+    }
   }
 
   function wire() {
@@ -1493,7 +1612,6 @@
     form.addEventListener("submit", (e) => e.preventDefault());
     form.addEventListener("input", (e) => {
       const t = e.target;
-      if (t.id === "browse-search") return;
       if (t.dataset && t.dataset.row) {
         const row = rowById(t.dataset.row);
         if (row) row[t.dataset.key] = t.value;
@@ -1502,7 +1620,6 @@
     });
     form.addEventListener("change", (e) => {
       const t = e.target;
-      if (t.id === "browse-search") return;
       if (t.id === "gpu-enabled" && t.checked) {
         if (num("cpu") < 4) setVal("cpu", 4);
         if (num("memory") < 8) setVal("memory", 8);
@@ -1551,44 +1668,48 @@
       render();
       $(`url-${rowSeq}`).focus();
     });
-    // the package browser
-    $("browse").addEventListener("toggle", () => {
-      if ($("browse").open) openList(browsing);
+    // popular packages
+    $("popular").addEventListener("toggle", () => {
+      if ($("popular").open) showPopular(popularTab);
     });
-    $("browse-tabs").addEventListener("click", (e) => {
+    $("popular-tabs").addEventListener("click", (e) => {
       const tab = e.target.closest("[data-list]");
-      if (tab) openList(LISTS.find((l) => l.id === tab.dataset.list));
+      if (tab) showPopular(LISTS.find((l) => l.id === tab.dataset.list));
     });
-    $("browse-tabs").addEventListener("keydown", (e) => {
+    $("popular-tabs").addEventListener("keydown", (e) => {
       const step = { ArrowRight: 1, ArrowLeft: -1 }[e.key];
       if (!step) return;
-      const next = LISTS[(LISTS.indexOf(browsing) + step + LISTS.length) % LISTS.length];
-      openList(next).then(() => $(`browse-tab-${next.id}`).focus());
+      const next = LISTS[(LISTS.indexOf(popularTab) + step + LISTS.length) % LISTS.length];
+      showPopular(next);
+      $(`popular-tab-${next.id}`).focus();
       e.preventDefault();
     });
-    $("browse-search").addEventListener("input", () => {
-      clearTimeout(searchTimer);
-      searchTimer = setTimeout(filterList, 120);
+    $("popular-chips").addEventListener("click", (e) => {
+      const chip = e.target.closest(".preset");
+      if (chip) togglePackage(popularTab.target, chip.dataset.name);
     });
-    $("browse-list").addEventListener("scroll", () => requestAnimationFrame(drawRows), { passive: true });
-    $("browse-rows").addEventListener("keydown", (e) => {
-      const row = e.target.closest(".browse-row");
-      const step = { ArrowDown: 1, ArrowUp: -1, PageDown: 8, PageUp: -8 }[e.key];
-      if (!row || !step) return;
-      stepRow(Number(row.dataset.i), step);
+
+    // suggestions in the boxes
+    for (const target of new Set(LISTS.map((l) => l.target))) {
+      const area = $(target);
+      area.addEventListener("focus", () => listsFor(target).forEach((list) => loadList(list).catch(() => {})));
+      area.addEventListener("input", () => {
+        clearTimeout(suggestTimer);
+        suggestTimer = setTimeout(() => showSuggestions(area), 60);
+      });
+      area.addEventListener("keydown", suggestionKeys);
+      area.addEventListener("click", hideSuggestions);
+      area.addEventListener("blur", () => setTimeout(() => suggesting && suggesting.area === area && document.activeElement !== area && hideSuggestions(), 150));
+    }
+    // a press, not a click, so that the box keeps the focus
+    $("suggest").addEventListener("mousedown", (e) => {
+      const row = e.target.closest(".suggest-row");
+      if (!row) return;
       e.preventDefault();
+      acceptSuggestion(Number(row.dataset.i));
     });
-    $("browse-search").addEventListener("keydown", (e) => {
-      if (e.key === "ArrowDown" && shown.length) {
-        $("browse-list").scrollTop = 0;
-        stepRow(0, 0);
-        e.preventDefault();
-      }
-    });
-    $("browse-rows").addEventListener("click", (e) => {
-      const row = e.target.closest(".browse-row");
-      if (row && shown[Number(row.dataset.i)]) togglePackage(browsing, shown[Number(row.dataset.i)].name);
-    });
+    // a phone's keyboard can resize the window: the suggestions move with their box
+    window.addEventListener("resize", () => suggesting && renderSuggestions());
 
     $("create-pr").addEventListener("click", createPullRequest);
 

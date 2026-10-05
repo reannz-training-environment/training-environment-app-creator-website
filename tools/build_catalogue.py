@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the package lists the website's package browser shows.
+"""Build the package lists the website's package boxes suggest from.
 
 Writes assets/catalogue/<list>.json for each list, and versions.json with the
 Python and R versions Mahuika has. The Catalogue workflow runs this every week
@@ -327,7 +327,7 @@ LISTS = {
 
 
 def rounded(n: int) -> int:
-    """Two significant figures: all the browser shows, and steadier from one
+    """Two significant figures: all the page shows, and steadier from one
     week to the next, so the weekly commit changes less."""
     return n if n < 100 else int(float(f"{n:.2g}"))
 

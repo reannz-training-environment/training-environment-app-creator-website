@@ -34,29 +34,34 @@ The app creator reads the spec back out of the issue, so the issue body must
 stay in the shape GitHub gives a form's field: `### App spec`, then the YAML in
 a fenced block.
 
-## Browsing packages
+## Popular packages and suggestions
 
-*Browse packages*, in the Software section, has one list per kind of
-package, with a search box. Clicking a package adds it to its box, and
-clicking again takes it out; anything not listed can still be typed in the
-box.
+*Popular packages*, in the Software section, has a tab for each kind of
+package, with a few dozen chosen packages to add with a click; a second click
+takes one out. For anything else, a package box suggests packages as their
+names are typed, from every package of its kind: the name itself first, then
+popular ones, then the most downloaded. Up and down choose a suggestion, Enter
+or Tab takes it, and Escape closes the list. Anything not suggested can still
+be typed.
 
-| List | Source | Box | Order |
+| Tab | Box | Suggests from | Ranked by |
 | --- | --- | --- | --- |
-| Bioinformatics | every [bioconda](https://bioconda.github.io) package that runs on Linux, except its R packages | Conda packages | common tools first, then by name |
-| Workflows | Nextflow, Snakemake, CWL, WDL, Cylc and the rest, from conda-forge and bioconda, and others whose description says they manage workflows | Conda packages | as listed in the script |
-| Python | the [15,000 most downloaded](https://hugovk.github.io/top-pypi-packages/) PyPI packages | Python packages (pip) | downloads |
-| R | every CRAN package | R packages: CRAN | downloads |
-| Bioconductor | every package of the current Bioconductor release: software, annotation, experiment data and workflows | R packages: Bioconductor | download score |
-| Command line | every Ubuntu 22.04 package in main and universe (the JupyterLab and VS Code images' Ubuntu) | System packages (apt) | common tools first, then installs counted by Debian |
-| VS Code | every extension on [Open VSX](https://open-vsx.org) | VS Code extensions | downloads |
+| Bioinformatics, Workflows | Conda packages | every [bioconda](https://bioconda.github.io) tool (except its R packages), and workflow managers from conda-forge and bioconda | popular first, then shortest |
+| Python | Python packages (pip) | the [15,000 most downloaded](https://hugovk.github.io/top-pypi-packages/) PyPI packages | downloads |
+| R | R packages: CRAN | every CRAN package | downloads |
+| Bioconductor | R packages: Bioconductor | every package of the current Bioconductor release | download score |
+| Command line | System packages (apt) | every Ubuntu 22.04 package in main and universe (the JupyterLab and VS Code images' Ubuntu) | installs counted by Debian |
+| VS Code | VS Code extensions | every extension on [Open VSX](https://open-vsx.org) | downloads |
 
-The lists are JSON files in `assets/catalogue/`, built by
-`tools/build_catalogue.py`. The **Catalogue** workflow rebuilds them every
-Monday and commits the ones that changed; run it by hand (*Actions*,
-*Catalogue*, *Run workflow*) to update them sooner. Only the list being looked
-at is downloaded, and only the rows in view are drawn, so even the 64,000
-Ubuntu packages scroll smoothly.
+The popular packages are chosen by hand, in `LISTS` in `assets/app.js`: the
+most downloaded packages are mostly ones other packages depend on, rather
+than what a workshop would ask for.
+
+The lists behind the suggestions are JSON files in `assets/catalogue/`, built
+by `tools/build_catalogue.py`. A box loads its lists the first time it is
+used. The **Catalogue** workflow rebuilds them every Monday and commits the
+ones that changed; run it by hand (*Actions*, *Catalogue*, *Run workflow*) to
+update them sooner.
 
 ## Python and R versions
 
@@ -95,7 +100,7 @@ python3 -m http.server 8000      # then open http://localhost:8000
 | `assets/app.css` | styles, light and dark |
 | `sign-in/worker.js` | the sign-in helper, which runs on Cloudflare Workers, not here ([setting it up](sign-in/README.md)) |
 | `assets/vendor/js-yaml.min.js` | [js-yaml](https://github.com/nodeca/js-yaml) 4.1.0 (MIT), to write and read YAML |
-| `assets/catalogue/` | the package browser's lists, and Mahuika's Python and R versions |
+| `assets/catalogue/` | the lists the package boxes suggest from, and Mahuika's Python and R versions |
 | `tools/build_catalogue.py` | builds them; the Catalogue workflow runs it weekly |
 
 GitHub Pages publishes `main` as it is; there is no build step.

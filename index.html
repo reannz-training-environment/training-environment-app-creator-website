@@ -186,24 +186,18 @@
 
       <section class="card" aria-labelledby="h-software">
         <h2 id="h-software"><span class="step">5</span>Software</h2>
-        <p class="section-hint">One package per line. JupyterLab, VS Code and the basics (git, Python, curl, vim, nano, rsync, ...) are already there.</p>
-        <details class="browse" id="browse">
-          <summary>Browse packages</summary>
-          <div class="browse-body">
-            <div class="browse-tabs" id="browse-tabs" role="tablist" aria-label="Package lists"></div>
-            <div class="browse-panel" id="browse-panel" role="tabpanel">
-              <div class="browse-head">
-                <input type="search" id="browse-search" spellcheck="false" autocomplete="off" aria-label="Search the list">
-                <p class="browse-count" id="browse-count" aria-live="polite"></p>
-              </div>
-              <div class="browse-list" id="browse-list">
-                <div class="browse-spacer" id="browse-spacer"></div>
-                <div class="browse-rows" id="browse-rows"></div>
-              </div>
-              <p class="hint" id="browse-note"></p>
+        <p class="section-hint">One package per line: start typing a name, and the box suggests packages. JupyterLab, VS Code and the basics (git, Python, curl, vim, nano, rsync, ...) are already there.</p>
+        <details class="popular" id="popular">
+          <summary>Popular packages</summary>
+          <div class="popular-body">
+            <div class="popular-tabs" id="popular-tabs" role="tablist" aria-label="Kinds of package"></div>
+            <div class="popular-panel" id="popular-panel" role="tabpanel">
+              <div class="chips" id="popular-chips"></div>
+              <p class="hint" id="popular-note"></p>
             </div>
           </div>
         </details>
+        <ul class="suggest" id="suggest" role="listbox" aria-label="Suggested packages" hidden></ul>
         <div class="grid">
           <div class="field">
             <label for="sw-conda">Conda packages</label>
