@@ -1,0 +1,51 @@
+# Rebuilds the package browser's lists, and the Python and R versions Mahuika
+# has, every week (tools/build_catalogue.py), and commits the ones that
+# changed. GitHub Pages then publishes them.
+#
+# A source that cannot be reached keeps its last list, and the run fails, so
+# that it shows; the other lists are still updated.
+name: Catalogue
+
+on:
+  schedule:
+    - cron: "17 3 * * 1" # Mondays, 03:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: catalogue
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Build the lists
+        id: build
+        continue-on-error: true
+        run: python3 tools/build_catalogue.py
+
+      - name: Commit the lists that changed
+        run: |
+          git add assets/catalogue
+          if git diff --cached --quiet; then
+            echo "No list changed."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -q -m "Update the package lists" -m "$(git diff --cached --stat HEAD | tail -n 1)"
+          git push
+
+      - name: Say which lists could not be built
+        if: steps.build.outcome == 'failure'
+        run: |
+          echo "::error::Some lists could not be built; their last copies stay. See the Build the lists step."
+          exit 1

@@ -37,7 +37,7 @@
   const CAN_SIGN_IN = Boolean(SIGN_IN.clientId && SIGN_IN.helper);
   // where GitHub sends people back to: the sign-in App's callback URL
   const HOME = `${location.origin}${location.pathname.replace(/index\.html$/, "")}`;
-  const DEFAULTS = { rstudioImage: "rocker/rstudio", rVersion: "4.5.3", channels: "conda-forge, bioconda" };
+  const DEFAULTS = { rstudioImage: "rocker/rstudio", rVersion: "4.6.0", channels: "conda-forge, bioconda" };
 
   const INTERFACES = [
     { id: "jupyter", label: "JupyterLab" },
@@ -67,6 +67,7 @@
   const RE = {
     name: /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/,
     version: /^[0-9]+\.[0-9]+\.[0-9]+$/,
+    python: /^3\.[0-9]+\.[0-9]+$/,
     user: /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/,
     workshopUrl: /^https?:\/\/[^\s"'`$\\]+$/,
     partition: /^[a-z][a-z0-9_-]{0,30}$/,
@@ -88,35 +89,47 @@
 
   const ARCHIVES = [".tar.gz", ".tgz", ".tar.bz2", ".tbz2", ".tar.xz", ".txz", ".tar", ".zip"];
 
-  const PRESETS = [
+  // The package browser's lists, from assets/catalogue/<id>.json, which the
+  // Catalogue workflow rebuilds every week (tools/build_catalogue.py). Each
+  // fills one box of the Software section. `featured` packages come first in
+  // lists that have no download counts to sort by.
+  const LISTS = [
     {
-      title: "Bioinformatics",
+      id: "bioconda",
+      search: "bioinformatics tools",
+      label: "Bioinformatics",
       target: "sw-conda",
-      note: "conda",
-      items: ["samtools", "bcftools", "bwa", "bowtie2", "minimap2", "fastqc", "multiqc", "fastp", "seqkit", "blast", "hisat2", "salmon", "star", "subread", "spades", "kraken2"],
+      what: "bioinformatics tools from bioconda",
+      featured: ["samtools", "bcftools", "bwa", "bowtie2", "minimap2", "fastqc", "multiqc", "fastp", "seqkit", "blast", "hisat2", "salmon", "star", "subread", "spades", "kraken2"],
     },
-    { title: "Workflows", target: "sw-conda", note: "conda", items: ["nextflow", "snakemake"] },
+    { id: "workflows", search: "workflow managers", label: "Workflows", target: "sw-conda", what: "workflow managers, as conda packages" },
+    { id: "pypi", search: "Python packages", label: "Python", target: "sw-pip", what: "of the most downloaded Python packages" },
+    { id: "cran", search: "R packages", label: "R", target: "sw-cran", what: "R packages on CRAN", needs: "rstudio" },
+    { id: "bioconductor", search: "Bioconductor packages", label: "Bioconductor", target: "sw-bioc", what: "Bioconductor packages", needs: "rstudio" },
     {
-      title: "Python",
-      target: "sw-pip",
-      note: "pip",
-      items: ["numpy", "pandas", "matplotlib", "scipy", "seaborn", "scikit-learn", "plotly", "ipywidgets"],
+      id: "apt",
+      search: "Ubuntu packages",
+      label: "Command line",
+      target: "sw-apt",
+      what: "Ubuntu 22.04 packages",
+      featured: ["parallel", "pigz", "tmux", "htop", "tree", "bc", "ncdu", "jq", "screen", "zsh", "emacs-nox", "build-essential", "gfortran", "cmake", "openmpi-bin", "libopenmpi-dev", "hdf5-tools", "netcdf-bin"],
     },
-    {
-      title: "R",
-      target: "sw-cran",
-      note: "CRAN",
-      items: ["tidyverse", "ggplot2", "dplyr", "readr", "rmarkdown", "knitr", "here", "palmerpenguins", "vegan"],
-    },
-    { title: "Bioconductor", target: "sw-bioc", note: "Bioconductor", items: ["DESeq2", "edgeR", "limma", "GenomicRanges", "Biostrings"] },
-    { title: "Command line", target: "sw-apt", note: "apt", items: ["parallel", "pigz", "tmux", "bc", "ncdu"] },
-    {
-      title: "VS Code",
-      target: "sw-vscode",
-      note: "extensions",
-      items: ["ms-python.python", "ms-toolsai.jupyter", "REditorSupport.r", "redhat.vscode-yaml", "nextflow.nextflow"],
-    },
+    { id: "vscode", search: "VS Code extensions", label: "VS Code", target: "sw-vscode", what: "VS Code extensions on Open VSX", needs: "codeserver" },
   ];
+  const ROW = 34; // the height of a package browser row, in pixels
+
+  // The Python and R versions Mahuika has, as NeSI's documentation lists
+  // them. The Catalogue workflow keeps assets/catalogue/versions.json up to
+  // date; these are used until it loads.
+  let MAHUIKA = {
+    python: { versions: ["3.14.4", "3.11.6", "3.11.3", "3.10.5", "3.9.9", "3.9.5", "3.8.2", "3.8.1", "3.7.3", "2.7.18", "2.7.16"], default: "3.14.4" },
+    r: { versions: ["4.6.0", "4.3.2", "4.3.1", "4.2.1", "4.1.0", "4.0.1", "3.6.2", "3.6.1", "3.5.3"], default: "4.6.0" },
+  };
+  // the R 3 versions the app creator can make (its spec.R3_SNAPSHOTS)
+  const R3 = ["3.4.2", "3.4.3", "3.4.4", "3.5.0", "3.5.1", "3.5.2", "3.5.3", "3.6.0", "3.6.1", "3.6.2", "3.6.3"];
+  // the Ubuntu of each rocker R image, and that Ubuntu's own Python
+  const UBUNTU_PYTHON = { focal: "3.8", jammy: "3.10", noble: "3.12" };
+  const IMAGE_PYTHON = UBUNTU_PYTHON.jammy; // JupyterLab and VS Code: Ubuntu 22.04
 
   // ------------------------------------------------------------------ state
 
@@ -128,6 +141,12 @@
   let availabilityTimer = null;
   let draftTimer = null;
   let busy = false;
+  const catalogues = new Map(); // list id -> the loaded list, or a promise of it
+  let browsing = LISTS[0]; // the list the package browser shows
+  let shown = []; // its rows that match the search
+  let filtered = ""; // the list and search that `shown` is for
+  let drawn = { rows: null, first: 0, last: 0 }; // the rows on screen
+  let searchTimer = null;
 
   // ---------------------------------------------------------------- helpers
 
@@ -366,6 +385,76 @@
     return res.status === 204 ? null : res.json();
   }
 
+  // --------------------------------------------------------------- versions
+
+  function olderThan(a, b) {
+    const x = a.split(".").map(Number);
+    const y = b.split(".").map(Number);
+    for (let i = 0; i < Math.max(x.length, y.length); i++) {
+      if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) < (y[i] || 0);
+    }
+    return false;
+  }
+
+  // the Ubuntu of rocker's image of this R (R 3 is built on its R 4.0.1 one)
+  function rUbuntu(r) {
+    return olderThan(r, "4.2.2") ? "focal" : olderThan(r, "4.4.2") ? "jammy" : "noble";
+  }
+
+  // the Python versions on offer: Mahuika's Python 3, from 3.7, which
+  // JupyterLab still runs on
+  function offeredPython() {
+    return MAHUIKA.python.versions.filter((v) => v.startsWith("3.") && !olderThan(v, "3.7.0"));
+  }
+
+  function offeredR() {
+    return MAHUIKA.r.versions.filter((v) => !olderThan(v, "4.0.0") || R3.includes(v));
+  }
+
+  function renderVersionMenus() {
+    const python = $("python-version");
+    const r = $("r-version");
+    const keep = [python.value, r.value];
+    python.innerHTML =
+      '<option value="">Ubuntu\'s own</option>' +
+      offeredPython().map((v) => `<option value="${v}">${v}${v === MAHUIKA.python.default ? " (Mahuika's default)" : ""}</option>`).join("");
+    r.innerHTML = offeredR().map((v) => `<option value="${v}">${v}${v === MAHUIKA.r.default ? " (Mahuika's default)" : ""}</option>`).join("");
+    setVersion("python-version", keep[0]);
+    setVersion("r-version", keep[1] || DEFAULTS.rVersion);
+    const left = MAHUIKA.python.versions.filter((v) => !offeredPython().includes(v));
+    $("python-left-out").textContent = left.length
+      ? ` Mahuika's Python ${left.join(" and ")} ${left.length === 1 ? "is" : "are"} not offered: JupyterLab and pip no longer run on ${left.length === 1 ? "it" : "them"}.`
+      : "";
+  }
+
+  // what Ubuntu's own Python is, and how R is made, for the versions chosen
+  function renderVersionNotes(spec) {
+    const rstudio = spec.interfaces.includes("rstudio");
+    const others = spec.interfaces.some((i) => i !== "rstudio");
+    const rv = (spec.advanced || {}).r_version || DEFAULTS.rVersion;
+    const rstudioPython = UBUNTU_PYTHON[rUbuntu(rv)];
+    const own = [others && IMAGE_PYTHON, rstudio && (others ? `${rstudioPython} in RStudio` : rstudioPython)].filter(Boolean);
+    $("python-version").options[0].textContent = `Ubuntu's own: ${own.join(", ") || IMAGE_PYTHON}`;
+    $("r-hint").textContent = olderThan(rv, "4.0.0")
+      ? `R ${rv} comes from Posit's builds of R, on rocker's R 4.0.1 image. Its packages are compiled from CRAN as it was in R ${rv}'s time, so the image takes longer to build.`
+      : `From the rocker/${val("rstudio-image").split("/")[1] || "rstudio"}:${rv} image, on Ubuntu ${{ focal: "20.04", jammy: "22.04", noble: "24.04" }[rUbuntu(rv)]}.`;
+  }
+
+  async function loadVersions() {
+    try {
+      const res = await fetch("assets/catalogue/versions.json");
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.python && data.python.versions && data.r && data.r.versions) {
+        MAHUIKA = data;
+        renderVersionMenus();
+        render();
+      }
+    } catch {
+      /* the built-in versions stand */
+    }
+  }
+
   // ------------------------------------------------------------------- spec
 
   function selectedInterfaces() {
@@ -466,9 +555,10 @@
     const advanced = {};
     const startDir = trimSlashes(val("start-dir"));
     if (startDir && interfaces.includes("codeserver")) advanced.start_dir = startDir;
+    if (val("python-version")) advanced.python_version = val("python-version");
     if (interfaces.includes("rstudio")) {
       advanced.rstudio_image = val("rstudio-image");
-      advanced.r_version = val("r-version").trim();
+      advanced.r_version = val("r-version");
     }
     const dockerfile = val("dockerfile").trim();
     if (dockerfile) advanced.dockerfile = dockerfile;
@@ -571,7 +661,24 @@
 
     const adv = spec.advanced || {};
     if (adv.start_dir && (!RE.relPath.test(adv.start_dir) || badPathParts(adv.start_dir))) err("The folder VS Code opens is not a valid path.", "start-dir");
-    if (adv.r_version !== undefined && !RE.version.test(adv.r_version)) err("The R version must look like 4.5.3.", "r-version");
+    const emulators = Boolean(f.slurm); // the GPU emulator always brings Slurm
+    if (adv.r_version !== undefined && !RE.version.test(adv.r_version)) err("The R version must look like 4.6.0.", "r-version");
+    if (adv.python_version && !RE.python.test(adv.python_version)) err("The Python version must look like 3.11.6.", "python-version");
+    else if (adv.python_version && olderThan(adv.python_version, "3.7.0")) {
+      err(`Python ${adv.python_version} is too old: JupyterLab and pip need Python 3.7 or newer.`, "python-version");
+    } else if (adv.python_version && emulators && olderThan(adv.python_version, "3.10.0")) {
+      err(`The Slurm and GPU emulators need Python 3.10 or newer, not ${adv.python_version}.`, "python-version");
+    }
+    if (spec.interfaces.includes("rstudio") && RE.version.test(adv.r_version || "")) {
+      const rv = adv.r_version;
+      if (olderThan(rv, "4.0.0") && !R3.includes(rv)) err(`The app creator cannot make R ${rv}: of R 3, it can make ${R3.join(", ")}.`, "r-version");
+      if (olderThan(rv, "4.0.0") && adv.rstudio_image !== "rocker/rstudio") {
+        err(`${adv.rstudio_image} comes with packages built for R 4, so it cannot have R ${rv}: choose rocker/rstudio, and list the R packages the app needs.`, "rstudio-image");
+      }
+      if (emulators && !adv.python_version && rUbuntu(rv) === "focal") {
+        err(`With R ${rv}, the RStudio image is Ubuntu 20.04, whose Python 3.8 is too old for the Slurm and GPU emulators: choose Python 3.10 or newer.`, "python-version");
+      }
+    }
     if (adv.dockerfile) warnings.push("Reviewers will read the extra Dockerfile instructions before merging.");
     if (adv.startup) warnings.push("Reviewers will read the session start commands before merging.");
 
@@ -745,40 +852,194 @@
     }
   }
 
-  // --------------------------------------------------------------- presets
+  // -------------------------------------------------------- package browser
+  //
+  // One list at a time, with a search box. Lists run to tens of thousands of
+  // packages, so only the rows in view are drawn. A row adds its package to
+  // its list's box in the Software section, or takes it out again.
 
-  function renderPresets() {
-    $("presets").innerHTML = PRESETS.map(
-      (group, gi) => `
-      <div class="preset-group">
-        <h3>${esc(group.title)} <code>${esc(group.note)}</code></h3>
-        ${group.items
-          .map((item) => `<button type="button" class="preset" data-group="${gi}" data-item="${esc(item)}" aria-pressed="false">${esc(item)}</button>`)
-          .join("")}
-      </div>`,
+  // the name a line of a box is about: "numpy>=1.2" and "bioconda::samtools=1.2"
+  // name numpy and samtools; pip treats -, _ and . alike
+  function packageKey(target, line) {
+    const name = line.split("::").pop().split(/[\s=<>!~@[;,]/)[0].trim().toLowerCase();
+    return target === "sw-pip" ? name.replace(/[-_.]+/g, "-") : name;
+  }
+
+  function boxLines(target) {
+    return items($(target).value, target !== "sw-conda" && target !== "sw-pip");
+  }
+
+  function chosenIn(target) {
+    return new Set(boxLines(target).map((line) => packageKey(target, line)));
+  }
+
+  function loadList(list) {
+    if (!catalogues.has(list.id)) {
+      const loading = fetch(`assets/catalogue/${list.id}.json`)
+        .then((res) => {
+          if (!res.ok) throw new Error(`it answered ${res.status}`);
+          return res.json();
+        })
+        .then((data) => {
+          const featured = list.featured || [];
+          const rows = data.items.map(([name, version, summary, popularity]) => ({
+            name,
+            version,
+            summary,
+            popularity,
+            key: packageKey(list.target, name),
+            lower: name.toLowerCase(),
+            text: (summary || "").toLowerCase(),
+          }));
+          const first = featured.map((name) => rows.find((r) => r.name === name)).filter(Boolean);
+          const loaded = { ...data, rows: [...first, ...rows.filter((r) => !first.includes(r))] };
+          catalogues.set(list.id, loaded);
+          return loaded;
+        })
+        .catch((e) => {
+          catalogues.delete(list.id);
+          throw e;
+        });
+      catalogues.set(list.id, loading);
+    }
+    return Promise.resolve(catalogues.get(list.id));
+  }
+
+  function renderBrowserTabs() {
+    $("browse-tabs").innerHTML = LISTS.map(
+      (list) =>
+        `<button type="button" role="tab" class="browse-tab" id="browse-tab-${list.id}" data-list="${list.id}" aria-selected="${list === browsing}" aria-controls="browse-panel" tabindex="${list === browsing ? 0 : -1}">${esc(list.label)}</button>`,
     ).join("");
   }
 
-  function updatePresets() {
-    for (const button of document.querySelectorAll(".preset")) {
-      const group = PRESETS[Number(button.dataset.group)];
-      const present = items($(group.target).value, group.target !== "sw-conda" && group.target !== "sw-pip").map(presetKey);
-      button.setAttribute("aria-pressed", String(present.includes(presetKey(button.dataset.item))));
+  async function openList(list) {
+    browsing = list;
+    renderBrowserTabs();
+    $("browse-panel").setAttribute("aria-labelledby", `browse-tab-${list.id}`);
+    $("browse-search").placeholder = `Search ${list.search}`;
+    $("browse-note").textContent = "";
+    if (!(catalogues.get(list.id) && catalogues.get(list.id).rows)) {
+      shown = [];
+      drawRows();
+      $("browse-count").textContent = "Loading the list...";
+    }
+    try {
+      const data = await loadList(list);
+      if (browsing !== list) return;
+      const when = data.updated ? ` Updated ${data.updated} from ${new URL(data.source).hostname}.` : "";
+      $("browse-note").textContent =
+        `${data.title}${data.popularity ? `, most ${data.popularity.startsWith("installs") ? "installed" : "downloaded"} first` : ""}.${when} ` +
+        `Click a package to add it to ${$(list.target).labels[0].textContent.trim()}, and again to take it out; anything else can be typed there.`;
+      filterList();
+    } catch (e) {
+      if (browsing !== list) return;
+      $("browse-count").textContent = `Could not load the list (${e.message}). Packages can still be typed in the boxes below.`;
     }
   }
 
-  function presetKey(item) {
-    return condaName(item);
+  // the open list's rows that match the search: names that start with it,
+  // then names that have it, then descriptions that have it
+  function filterList() {
+    const data = catalogues.get(browsing.id);
+    if (!data || !data.rows) return;
+    const query = $("browse-search").value.trim().toLowerCase();
+    if (!query) {
+      shown = data.rows;
+    } else {
+      const starts = [];
+      const has = [];
+      const about = [];
+      for (const row of data.rows) {
+        if (row.lower.startsWith(query)) starts.push(row);
+        else if (row.lower.includes(query)) has.push(row);
+        else if (row.text.includes(query)) about.push(row);
+      }
+      shown = [...starts, ...has, ...about];
+    }
+    countRows();
+    // back to the top for a new list or search, not for the same one again
+    if (filtered !== `${browsing.id}\n${query}`) $("browse-list").scrollTop = 0;
+    filtered = `${browsing.id}\n${query}`;
+    drawRows();
   }
 
-  function togglePreset(button) {
-    const group = PRESETS[Number(button.dataset.group)];
-    const area = $(group.target);
-    const item = button.dataset.item;
+  // "12 of 7,616 bioinformatics tools from bioconda", and whether the list's
+  // interface is chosen
+  function countRows() {
+    const data = catalogues.get(browsing.id);
+    if (!data || !data.rows) return;
+    const total = data.rows.length.toLocaleString();
+    const needs = browsing.needs && !selectedInterfaces().includes(browsing.needs);
+    $("browse-count").textContent =
+      (shown.length === data.rows.length ? `${total} ${browsing.what}` : `${shown.length.toLocaleString()} of ${total} ${browsing.what}`) +
+      (needs ? ` (for the ${browsing.needs === "rstudio" ? "RStudio" : "VS Code"} app, which is not chosen)` : "");
+  }
+
+  function compactCount(n) {
+    if (n >= 1e9) return `${(n / 1e9).toFixed(1)}B`;
+    if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
+    if (n >= 1e4) return `${Math.round(n / 1e3)}k`;
+    if (n >= 1e3) return `${(n / 1e3).toFixed(1)}k`;
+    return String(n);
+  }
+
+  // draw the rows in view, and a few either side. When those are the rows
+  // already drawn, only their ticks are brought up to date: replacing a row
+  // between a mouse press and its release would lose the click.
+  function drawRows() {
+    const list = $("browse-list");
+    $("browse-spacer").style.height = `${shown.length * ROW}px`;
+    const first = Math.max(0, Math.floor(list.scrollTop / ROW) - 6);
+    const last = Math.min(shown.length, Math.ceil((list.scrollTop + (list.clientHeight || 300)) / ROW) + 6);
+    const chosen = chosenIn(browsing.target);
+    if (drawn.rows === shown && drawn.first === first && drawn.last === last) {
+      for (const el of $("browse-rows").children) {
+        el.setAttribute("aria-pressed", String(chosen.has(shown[Number(el.dataset.i)].key)));
+      }
+      return;
+    }
+    drawn = { rows: shown, first, last };
+    const data = catalogues.get(browsing.id);
+    const counted = data && data.popularity ? data.popularity : "";
+    let html = "";
+    for (let i = first; i < last; i++) {
+      const row = shown[i];
+      const on = chosen.has(row.key);
+      html +=
+        `<button type="button" class="browse-row" data-i="${i}" aria-pressed="${on}" style="top:${i * ROW}px"${row.summary ? ` title="${esc(row.summary)}"` : ""}>` +
+        `<span class="browse-name">${esc(row.name)}</span>` +
+        (row.version ? `<span class="browse-version">${esc(row.version)}</span>` : "") +
+        `<span class="browse-summary">${esc(row.summary || "")}</span>` +
+        (row.popularity ? `<span class="browse-pop" title="${esc(`${row.popularity.toLocaleString()} ${counted}`)}">${compactCount(row.popularity)}</span>` : "") +
+        "</button>";
+    }
+    // drawing replaces the rows, so a row that had the focus gets it back
+    const focused = document.activeElement && document.activeElement.closest && document.activeElement.closest(".browse-row");
+    $("browse-rows").innerHTML = html;
+    if (focused) {
+      const again = $("browse-rows").querySelector(`[data-i="${focused.dataset.i}"]`);
+      if (again) again.focus({ preventScroll: true });
+    }
+  }
+
+  // up and down move through the list, scrolling it as they go
+  function stepRow(from, step) {
+    const to = Math.max(0, Math.min(shown.length - 1, from + step));
+    const list = $("browse-list");
+    if (to * ROW < list.scrollTop) list.scrollTop = to * ROW;
+    else if ((to + 1) * ROW > list.scrollTop + list.clientHeight) list.scrollTop = (to + 1) * ROW - list.clientHeight;
+    drawRows();
+    const row = $("browse-rows").querySelector(`[data-i="${to}"]`);
+    if (row) row.focus({ preventScroll: true });
+  }
+
+  function togglePackage(list, name) {
+    const area = $(list.target);
+    const key = packageKey(list.target, name);
     const lines = area.value.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-    const idx = lines.findIndex((l) => presetKey(l) === presetKey(item));
+    const idx = lines.findIndex((l) => packageKey(list.target, l) === key);
     if (idx >= 0) lines.splice(idx, 1);
-    else lines.push(item);
+    else lines.push(name);
     area.value = lines.join("\n");
     render();
   }
@@ -822,7 +1083,7 @@
     const blank = (e) => (e.field === "name" && !spec.name) || (e.field === "title" && !spec.title);
     const fieldErrors = new Map();
     for (const e of errors) if (e.field && !blank(e) && !fieldErrors.has(e.field)) fieldErrors.set(e.field, e.message);
-    for (const id of ["name", "title", "version", "maintainers", "workshop-url", "cpu", "memory", "wall-default", "wall-min", "slurm-partition", "slurm-node", "start-dir", "r-version", "sw-channels"]) {
+    for (const id of ["name", "title", "version", "maintainers", "workshop-url", "cpu", "memory", "wall-default", "wall-min", "slurm-partition", "slurm-node", "start-dir", "python-version", "rstudio-image", "r-version", "sw-channels"]) {
       setInvalid(id, fieldErrors.get(id));
     }
     $("name-error").textContent = fieldErrors.get("name") || "";
@@ -873,8 +1134,12 @@
           ? "Signs you in with GitHub, then files the request. The first time, GitHub asks you to authorise the app creator."
           : "Opens GitHub with the request filled in: press Create there, and the app creator does the rest.";
 
+    renderVersionNotes(spec);
     $("yaml-preview").textContent = toYaml(spec);
-    updatePresets();
+    if ($("browse").open) {
+      countRows();
+      drawRows();
+    }
 
     // folders VS Code could open
     const dests = unique(
@@ -936,6 +1201,16 @@
 
   function setVal(id, value) {
     $(id).value = value === undefined || value === null ? "" : String(value);
+  }
+
+  // a version menu set to `value`, which gets its own entry if Mahuika does
+  // not have it (an app made before, or by hand)
+  function setVersion(id, value) {
+    const select = $(id);
+    if (value && ![...select.options].some((o) => o.value === value)) {
+      select.insertAdjacentHTML("beforeend", `<option value="${esc(value)}" data-extra>${esc(value)} (not a Mahuika version)</option>`);
+    }
+    select.value = value;
   }
 
   function fillForm(spec) {
@@ -1007,10 +1282,11 @@
     const adv = spec.advanced || {};
     setVal("start-dir", adv.start_dir);
     setVal("rstudio-image", adv.rstudio_image || DEFAULTS.rstudioImage);
-    setVal("r-version", adv.r_version || DEFAULTS.rVersion);
+    setVersion("python-version", adv.python_version || "");
+    setVersion("r-version", adv.r_version || DEFAULTS.rVersion);
     setVal("dockerfile", adv.dockerfile);
     setVal("startup", adv.startup);
-    $("advanced").open = Boolean(adv.dockerfile || adv.startup || adv.start_dir || spec.visibility === "private");
+    $("advanced").open = Boolean(adv.dockerfile || adv.startup || adv.start_dir || adv.python_version || spec.visibility === "private");
     return unknown;
   }
 
@@ -1208,7 +1484,8 @@
       (c) => `<label class="chip"><input type="checkbox" id="card-${c.id}" value="${c.id}" checked><span>${esc(c.label)} <small>${esc(c.memory)}</small></span></label>`,
     ).join("");
     $("gpu-vram").innerHTML = VRAM.map(([v, label]) => `<option value="${v}"${v === "200MiB" ? " selected" : ""}>${esc(label)}</option>`).join("");
-    renderPresets();
+    renderBrowserTabs();
+    renderVersionMenus();
   }
 
   function wire() {
@@ -1216,6 +1493,7 @@
     form.addEventListener("submit", (e) => e.preventDefault());
     form.addEventListener("input", (e) => {
       const t = e.target;
+      if (t.id === "browse-search") return;
       if (t.dataset && t.dataset.row) {
         const row = rowById(t.dataset.row);
         if (row) row[t.dataset.key] = t.value;
@@ -1224,6 +1502,7 @@
     });
     form.addEventListener("change", (e) => {
       const t = e.target;
+      if (t.id === "browse-search") return;
       if (t.id === "gpu-enabled" && t.checked) {
         if (num("cpu") < 4) setVal("cpu", 4);
         if (num("memory") < 8) setVal("memory", 8);
@@ -1272,9 +1551,43 @@
       render();
       $(`url-${rowSeq}`).focus();
     });
-    $("presets").addEventListener("click", (e) => {
-      const button = e.target.closest(".preset");
-      if (button) togglePreset(button);
+    // the package browser
+    $("browse").addEventListener("toggle", () => {
+      if ($("browse").open) openList(browsing);
+    });
+    $("browse-tabs").addEventListener("click", (e) => {
+      const tab = e.target.closest("[data-list]");
+      if (tab) openList(LISTS.find((l) => l.id === tab.dataset.list));
+    });
+    $("browse-tabs").addEventListener("keydown", (e) => {
+      const step = { ArrowRight: 1, ArrowLeft: -1 }[e.key];
+      if (!step) return;
+      const next = LISTS[(LISTS.indexOf(browsing) + step + LISTS.length) % LISTS.length];
+      openList(next).then(() => $(`browse-tab-${next.id}`).focus());
+      e.preventDefault();
+    });
+    $("browse-search").addEventListener("input", () => {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(filterList, 120);
+    });
+    $("browse-list").addEventListener("scroll", () => requestAnimationFrame(drawRows), { passive: true });
+    $("browse-rows").addEventListener("keydown", (e) => {
+      const row = e.target.closest(".browse-row");
+      const step = { ArrowDown: 1, ArrowUp: -1, PageDown: 8, PageUp: -8 }[e.key];
+      if (!row || !step) return;
+      stepRow(Number(row.dataset.i), step);
+      e.preventDefault();
+    });
+    $("browse-search").addEventListener("keydown", (e) => {
+      if (e.key === "ArrowDown" && shown.length) {
+        $("browse-list").scrollTop = 0;
+        stepRow(0, 0);
+        e.preventDefault();
+      }
+    });
+    $("browse-rows").addEventListener("click", (e) => {
+      const row = e.target.closest(".browse-row");
+      if (row && shown[Number(row.dataset.i)]) togglePackage(browsing, shown[Number(row.dataset.i)].name);
     });
 
     $("create-pr").addEventListener("click", createPullRequest);
@@ -1362,6 +1675,7 @@
     if (!restoreDraft()) resetForm();
     renderAccount();
     render();
+    loadVersions();
     if (CAN_SIGN_IN) finishSignIn();
   }
 

@@ -187,9 +187,22 @@
       <section class="card" aria-labelledby="h-software">
         <h2 id="h-software"><span class="step">5</span>Software</h2>
         <p class="section-hint">One package per line. JupyterLab, VS Code and the basics (git, Python, curl, vim, nano, rsync, ...) are already there.</p>
-        <details class="presets">
-          <summary>Common packages</summary>
-          <div id="presets"></div>
+        <details class="browse" id="browse">
+          <summary>Browse packages</summary>
+          <div class="browse-body">
+            <div class="browse-tabs" id="browse-tabs" role="tablist" aria-label="Package lists"></div>
+            <div class="browse-panel" id="browse-panel" role="tabpanel">
+              <div class="browse-head">
+                <input type="search" id="browse-search" spellcheck="false" autocomplete="off" aria-label="Search the list">
+                <p class="browse-count" id="browse-count" aria-live="polite"></p>
+              </div>
+              <div class="browse-list" id="browse-list">
+                <div class="browse-spacer" id="browse-spacer"></div>
+                <div class="browse-rows" id="browse-rows"></div>
+              </div>
+              <p class="hint" id="browse-note"></p>
+            </div>
+          </div>
         </details>
         <div class="grid">
           <div class="field">
@@ -276,6 +289,11 @@
             </select>
             <p class="hint">The cluster can only pull public images.</p>
           </div>
+          <div class="field span-2">
+            <label for="python-version">Python version</label>
+            <select id="python-version"></select>
+            <p class="hint">The versions of Python Mahuika has, from conda-forge, in every interface. Ubuntu's own is quicker to build. The Slurm and GPU emulators need 3.10 or newer.<span id="python-left-out"></span></p>
+          </div>
           <div class="field" data-needs="rstudio">
             <label for="rstudio-image">RStudio image</label>
             <select id="rstudio-image">
@@ -287,10 +305,8 @@
           </div>
           <div class="field" data-needs="rstudio">
             <label for="r-version">R version</label>
-            <input id="r-version" spellcheck="false" value="4.5.3" list="r-versions">
-            <datalist id="r-versions">
-              <option value="4.6.1"><option value="4.5.3"><option value="4.4.3">
-            </datalist>
+            <select id="r-version"></select>
+            <p class="hint" id="r-hint"></p>
           </div>
           <div class="field" data-needs="codeserver">
             <label for="start-dir">Folder VS Code opens</label>

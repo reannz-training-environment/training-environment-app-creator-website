@@ -34,6 +34,39 @@ The app creator reads the spec back out of the issue, so the issue body must
 stay in the shape GitHub gives a form's field: `### App spec`, then the YAML in
 a fenced block.
 
+## Browsing packages
+
+*Browse packages*, in the Software section, has one list per kind of
+package, with a search box. Clicking a package adds it to its box, and
+clicking again takes it out; anything not listed can still be typed in the
+box.
+
+| List | Source | Box | Order |
+| --- | --- | --- | --- |
+| Bioinformatics | every [bioconda](https://bioconda.github.io) package that runs on Linux, except its R packages | Conda packages | common tools first, then by name |
+| Workflows | Nextflow, Snakemake, CWL, WDL, Cylc and the rest, from conda-forge and bioconda, and others whose description says they manage workflows | Conda packages | as listed in the script |
+| Python | the [15,000 most downloaded](https://hugovk.github.io/top-pypi-packages/) PyPI packages | Python packages (pip) | downloads |
+| R | every CRAN package | R packages: CRAN | downloads |
+| Bioconductor | every package of the current Bioconductor release: software, annotation, experiment data and workflows | R packages: Bioconductor | download score |
+| Command line | every Ubuntu 22.04 package in main and universe (the JupyterLab and VS Code images' Ubuntu) | System packages (apt) | common tools first, then installs counted by Debian |
+| VS Code | every extension on [Open VSX](https://open-vsx.org) | VS Code extensions | downloads |
+
+The lists are JSON files in `assets/catalogue/`, built by
+`tools/build_catalogue.py`. The **Catalogue** workflow rebuilds them every
+Monday and commits the ones that changed; run it by hand (*Actions*,
+*Catalogue*, *Run workflow*) to update them sooner. Only the list being looked
+at is downloaded, and only the rows in view are drawn, so even the 64,000
+Ubuntu packages scroll smoothly.
+
+## Python and R versions
+
+The Python and R menus under *Advanced* offer the versions Mahuika has, as
+[NeSI's documentation](https://docs.nesi.org.nz/Software/Available_Applications/Python/)
+lists them; the Catalogue workflow reads them into
+`assets/catalogue/versions.json` each week, so new ones appear by themselves.
+Python 2.7 is left out, since JupyterLab and pip no longer run on it. The app
+creator's README explains how each version is installed.
+
 ## Space needed
 
 The page does not estimate the space an app needs. The app creator measures
@@ -62,5 +95,7 @@ python3 -m http.server 8000      # then open http://localhost:8000
 | `assets/app.css` | styles, light and dark |
 | `sign-in/worker.js` | the sign-in helper, which runs on Cloudflare Workers, not here ([setting it up](sign-in/README.md)) |
 | `assets/vendor/js-yaml.min.js` | [js-yaml](https://github.com/nodeca/js-yaml) 4.1.0 (MIT), to write and read YAML |
+| `assets/catalogue/` | the package browser's lists, and Mahuika's Python and R versions |
+| `tools/build_catalogue.py` | builds them; the Catalogue workflow runs it weekly |
 
 GitHub Pages publishes `main` as it is; there is no build step.
